@@ -1,0 +1,166 @@
+// BuildingSync R1 — slim schema
+// Models live alongside Supabase Auth (auth.users). Prisma owns app data.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  resident
+  tenant
+  concierge
+  facility_manager
+  building_manager
+}
+
+enum WorkOrderStatus {
+  open
+  assigned
+  in_progress
+  closed
+}
+
+enum PaymentStatus {
+  pending
+  succeeded
+  failed
+  refunded
+}
+
+// Mirror of Supabase auth.users keyed by the same uuid (auth.uid()).
+// Holds app-side role + building/unit assignments.
+model User {
+  id         String    @id @db.Uuid
+  email      String    @unique
+  name       String?
+  phone      String?
+  role       UserRole  @default(resident)
+  buildingId String?
+  unitId     String?
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  building          Building?        @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  unit              Unit?            @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  leases            Lease[]
+  workOrdersOpened  WorkOrder[]      @relation("WorkOrderOpener")
+  workOrdersAssign  WorkOrder[]      @relation("WorkOrderAssignee")
+  announcementsBy   Announcement[]   @relation("AnnouncementAuthor")
+  payments          Payment[]
+
+  @@index([buildingId])
+  @@index([role])
+}
+
+model Building {
+  id        String   @id @default(cuid())
+  name      String
+  address   String
+  city      String
+  state     String
+  zipCode   String
+  timezone  String   @default("America/New_York")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users         User[]
+  units         Unit[]
+  leases        Lease[]
+  workOrders    WorkOrder[]
+  announcements Announcement[]
+}
+
+model Unit {
+  id         String   @id @default(cuid())
+  buildingId String
+  unitNumber String
+  floor      Int?
+  rentAmount Decimal? @db.Decimal(10, 2)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  building   Building    @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  users      User[]
+  leases     Lease[]
+  workOrders WorkOrder[]
+
+  @@unique([buildingId, unitNumber])
+}
+
+model Lease {
+  id         String    @id @default(cuid())
+  buildingId String
+  unitId     String
+  tenantId   String    @db.Uuid
+  startDate  DateTime
+  endDate    DateTime?
+  rentAmount Decimal   @db.Decimal(10, 2)
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  unit     Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  tenant   User     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payments Payment[]
+
+  @@index([tenantId])
+  @@index([unitId])
+}
+
+model WorkOrder {
+  id           String          @id @default(cuid())
+  buildingId   String
+  unitId       String?
+  openedById   String          @db.Uuid
+  assignedToId String?         @db.Uuid
+  title        String
+  description  String
+  status       WorkOrderStatus @default(open)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  unit       Unit?    @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  openedBy   User     @relation("WorkOrderOpener", fields: [openedById], references: [id])
+  assignedTo User?    @relation("WorkOrderAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([buildingId, status])
+  @@index([assignedToId])
+}
+
+model Announcement {
+  id         String   @id @default(cuid())
+  buildingId String
+  authorId   String   @db.Uuid
+  title      String
+  body       String
+  createdAt  DateTime @default(now())
+
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  author   User     @relation("AnnouncementAuthor", fields: [authorId], references: [id])
+
+  @@index([buildingId, createdAt])
+}
+
+model Payment {
+  id                    String        @id @default(cuid())
+  leaseId               String
+  payerId               String        @db.Uuid
+  amount                Decimal       @db.Decimal(10, 2)
+  currency              String        @default("usd")
+  status                PaymentStatus @default(pending)
+  stripeCheckoutId      String?       @unique
+  stripePaymentIntentId String?       @unique
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  lease Lease @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  payer User  @relation(fields: [payerId], references: [id])
+
+  @@index([leaseId, status])
+}
