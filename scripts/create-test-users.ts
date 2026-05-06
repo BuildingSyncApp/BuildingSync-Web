@@ -1,8 +1,12 @@
-// Bulk-create test users for the smoke build.
+// Bulk-create / sync test users for the smoke build.
 // Usage: npx tsx scripts/create-test-users.ts [password]
 //
-// Prereq: Supabase Auth → Email provider → "Confirm email" toggled OFF.
-// Otherwise sign-ups will require manual link clicks for each address.
+// For each test email:
+//   - If a Prisma User row already exists, just update role + building/unit.
+//   - Otherwise, sign the user up via Supabase Auth and create the Prisma row.
+//
+// If "Confirm email" is still ON in Supabase, new sign-ups will be in pending
+// state. Disable it in Auth → Providers → Email for clean creation.
 
 import { config as loadEnv } from "dotenv";
 loadEnv({ path: ".env.local" });
@@ -20,12 +24,12 @@ const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
 });
 
-const TEST_USERS: Array<{ email: string; role: UserRole; assignToBuilding: boolean }> = [
-  { email: "sinhaankur827+bm@gmail.com", role: "building_manager", assignToBuilding: true },
-  { email: "sinhaankur827+fm@gmail.com", role: "facility_manager", assignToBuilding: true },
-  { email: "sinhaankur827+concierge@gmail.com", role: "concierge", assignToBuilding: true },
-  { email: "sinhaankur827+resident@gmail.com", role: "resident", assignToBuilding: true },
-  { email: "sinhaankur827+tenant@gmail.com", role: "tenant", assignToBuilding: true },
+const TEST_USERS: Array<{ email: string; role: UserRole }> = [
+  { email: "sinhaankur827+bm@gmail.com", role: "building_manager" },
+  { email: "sinhaankur827+fm@gmail.com", role: "facility_manager" },
+  { email: "sinhaankur827+concierge@gmail.com", role: "concierge" },
+  { email: "sinhaankur827+resident@gmail.com", role: "resident" },
+  { email: "sinhaankur827+tenant@gmail.com", role: "tenant" },
 ];
 
 const PASSWORD = process.argv[2] || "BuildingSync!2026";
@@ -39,52 +43,35 @@ async function main() {
   const unit = await prisma.unit.findFirst({ where: { buildingId: building.id } });
 
   for (const u of TEST_USERS) {
-    const { data, error } = await supabase.auth.signUp({ email: u.email, password: PASSWORD });
+    const isResident = u.role === "resident" || u.role === "tenant";
+    const linkData = {
+      role: u.role,
+      buildingId: building.id,
+      unitId: isResident && unit ? unit.id : null,
+    };
 
-    let authId = data.user?.id;
-    let status: "created" | "existing" | "error" = "created";
+    const existing = await prisma.user.findUnique({ where: { email: u.email } });
 
-    if (error) {
-      if (error.message.toLowerCase().includes("already")) {
-        // Already in Supabase Auth. Look it up in our app User table.
-        const existing = await prisma.user.findUnique({ where: { email: u.email } });
-        if (!existing) {
-          console.warn(`${u.email}: in Supabase Auth but no app row yet — sign in once via /signin so the upsert runs, then re-run this script.`);
-          continue;
-        }
-        authId = existing.id;
-        status = "existing";
-      } else {
-        console.error(`${u.email}: ${error.message}`);
-        status = "error";
-        continue;
-      }
-    }
-
-    if (!authId) {
-      console.warn(`${u.email}: no auth id returned — likely email confirmation is still ON. Disable it in Supabase and re-run.`);
+    if (existing) {
+      await prisma.user.update({ where: { id: existing.id }, data: linkData });
+      console.log(`${u.email.padEnd(40)} role=${u.role.padEnd(20)} updated`);
       continue;
     }
 
-    const isResident = u.role === "resident" || u.role === "tenant";
-    await prisma.user.upsert({
-      where: { id: authId },
-      update: {
-        email: u.email,
-        role: u.role,
-        buildingId: u.assignToBuilding ? building.id : null,
-        unitId: isResident && unit ? unit.id : null,
-      },
-      create: {
-        id: authId,
-        email: u.email,
-        role: u.role,
-        buildingId: u.assignToBuilding ? building.id : null,
-        unitId: isResident && unit ? unit.id : null,
-      },
-    });
+    const { data, error } = await supabase.auth.signUp({ email: u.email, password: PASSWORD });
+    if (error) {
+      console.error(`${u.email}: ${error.message}`);
+      continue;
+    }
+    if (!data.user?.id) {
+      console.warn(`${u.email}: no user id from Supabase (rate limit or confirmation pending)`);
+      continue;
+    }
 
-    console.log(`${u.email.padEnd(40)} role=${u.role.padEnd(20)} ${status}`);
+    await prisma.user.create({
+      data: { id: data.user.id, email: u.email, ...linkData },
+    });
+    console.log(`${u.email.padEnd(40)} role=${u.role.padEnd(20)} created`);
   }
 
   console.log(`\nAll passwords: ${PASSWORD}`);

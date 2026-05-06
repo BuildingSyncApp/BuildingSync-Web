@@ -11,7 +11,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         style={{ borderColor: "currentColor" }}
       >
         <div className="flex items-center gap-6">
-          <Link href="/team" className="font-semibold">BuildingSync · Admin</Link>
+          <Link href="/team" className="font-semibold">BuildingSync · Team</Link>
           <nav className="flex gap-4 text-sm">
             <Link href="/team/work-orders" className="opacity-70 hover:opacity-100">Work orders</Link>
             <Link href="/team/residents" className="opacity-70 hover:opacity-100">Residents</Link>
