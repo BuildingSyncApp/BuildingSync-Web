@@ -20,6 +20,8 @@ export default function SignUpPage() {
       email,
       password,
       options: {
+        // Bring users back to the same host they signed up from so the
+        // session cookie is set on the right subdomain.
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });

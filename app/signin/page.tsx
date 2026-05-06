@@ -23,7 +23,9 @@ export default function SignInPage() {
       setError(error.message);
       return;
     }
-    router.push("/dashboard");
+    const isAdminHost =
+      typeof window !== "undefined" && window.location.host.startsWith("admin.");
+    router.push(isAdminHost ? "/admin" : "/dashboard");
     router.refresh();
   }
 
