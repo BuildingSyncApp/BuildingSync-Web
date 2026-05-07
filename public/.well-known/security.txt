@@ -1,0 +1,13 @@
+Contact: mailto:security@buildingsync.app
+Contact: mailto:info@buildingsync.app
+Expires: 2027-05-06T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://buildingsync.app/.well-known/security.txt
+Policy: https://buildingsync.app/privacy
+
+# We welcome reports of security vulnerabilities affecting BuildingSync.
+# Please email the address above with a clear description and reproduction
+# steps. We aim to acknowledge reports within 2 business days.
+#
+# A formal bug-bounty program is not yet in place; we're happy to credit
+# researchers who report responsibly.

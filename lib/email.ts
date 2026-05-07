@@ -25,11 +25,25 @@ export function sendEmailFireAndForget(args: SendArgs): void {
 
 // ─── Templates ──────────────────────────────────────────────────────────
 
+// Sender identification + Privacy / Terms links satisfy CASL §6 (Canada
+// Anti-Spam Law) requirements for any commercial electronic message.
+// Operational service emails (work-order updates) arguably aren't CECMs,
+// but adding the footer to all transactional mail is cheap and keeps us
+// inside the safe lane regardless.
 const wrap = (inner: string) => `<!doctype html>
 <html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f4ee;color:#141414;margin:0;padding:24px;">
 <div style="max-width:560px;margin:0 auto;background:#fffdf7;border:1px solid #e6dfce;border-radius:8px;padding:28px;">
 ${inner}
-<p style="margin-top:32px;font-size:12px;color:#777;">— BuildingSync</p>
+<hr style="margin-top:32px;border:0;border-top:1px solid #e6dfce;" />
+<p style="margin-top:18px;font-size:11px;color:#999;line-height:1.55;">
+  Sent by <strong style="color:#666;">BuildingSync</strong>, a Node2.io service.<br />
+  You're receiving this because your building uses BuildingSync. Manage notification preferences in your account, or reply to this email if you'd prefer to stop receiving them.
+</p>
+<p style="margin-top:10px;font-size:11px;color:#999;">
+  <a href="${APP_URL}/privacy" style="color:#999;">Privacy Policy</a> &nbsp;·&nbsp;
+  <a href="${APP_URL}/terms" style="color:#999;">Terms</a> &nbsp;·&nbsp;
+  <a href="mailto:info@buildingsync.app" style="color:#999;">info@buildingsync.app</a>
+</p>
 </div></body></html>`;
 
 export function welcomeEmail(args: {

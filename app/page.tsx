@@ -553,6 +553,7 @@ function SiteFooter() {
           service
         </p>
         <div className="flex items-center gap-4">
+          <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
           <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
           <a
             href="https://www.linkedin.com/company/node2-io/"
