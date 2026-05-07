@@ -21,6 +21,10 @@ export default async function TeamWorkOrdersPage() {
     include: {
       openedBy: { select: { email: true, name: true } },
       assignee: { select: { email: true, name: true } },
+      notes: {
+        orderBy: { createdAt: "desc" },
+        include: { author: { select: { email: true, name: true } } },
+      },
     },
     take: 100,
   });
@@ -62,6 +66,13 @@ export default async function TeamWorkOrdersPage() {
                 unitLabel: wo.unit || null,
                 assignedToLabel: wo.assignee ? (wo.assignee.name || wo.assignee.email) : null,
               }}
+              notes={wo.notes.map((n) => ({
+                id: n.id,
+                body: n.body,
+                createdAt: n.createdAt.toISOString(),
+                authorName: n.author?.name ?? null,
+                authorEmail: n.author?.email ?? "",
+              }))}
               canAct={canAct}
             />
           ))}

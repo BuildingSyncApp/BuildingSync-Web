@@ -2,15 +2,10 @@ import Link from "next/link";
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
 import { EmptyState } from "@/components/EmptyState";
+import { StatCard } from "@/components/StatCard";
+import { StatusPill, workOrderTone } from "@/components/StatusPill";
+import { roleLabel } from "@/components/RoleBadge";
 import { formatRelative } from "@/lib/format";
-
-const STATUS_TONE: Record<string, string> = {
-  open: "bg-accent/10 text-accent border-accent/30",
-  in_progress: "bg-foreground/5 text-foreground border-border",
-  scheduled: "bg-muted text-muted-foreground border-border",
-  completed: "bg-muted/50 text-muted-foreground border-border",
-  closed: "bg-muted/50 text-muted-foreground border-border line-through",
-};
 
 const ACTIVE_STATUSES = ["open", "in_progress", "scheduled"] as const;
 
@@ -41,14 +36,17 @@ export default async function TeamHome() {
   return (
     <main className="px-4 md:px-6 py-8 md:py-10 max-w-5xl mx-auto">
       <div className="space-y-1">
-        <p className="text-xs uppercase tracking-wider text-muted-foreground">{appUser.role.replace("_", " ")}</p>
-        <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">{building ? building.name : "Your team"}</h1>
-        {building && (
+        <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+          {roleLabel(appUser.role)}
+        </p>
+        <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">
+          {building ? building.name : "Your team"}
+        </h1>
+        {building ? (
           <p className="text-sm text-muted-foreground">
             {building.address}, {building.city}, {building.state} {building.zipCode}
           </p>
-        )}
-        {!building && (
+        ) : (
           <p className="text-sm text-muted-foreground">
             Your account is not yet linked to a building. Ask your platform admin.
           </p>
@@ -56,18 +54,19 @@ export default async function TeamHome() {
       </div>
 
       <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <StatLink href="/team/work-orders" value={openCount} label="Open work orders" />
-        <StatLink href="/team/residents" value={residentCount} label="Residents" />
-        <StatLink
-          href={isBM ? "/team/announcements" : null}
-          value={announcementCount}
+        <StatCard label="Open work orders" value={openCount} href="/team/work-orders" />
+        <StatCard label="Residents" value={residentCount} href="/team/residents" />
+        <StatCard
           label="Announcements"
+          value={announcementCount}
+          href={isBM ? "/team/announcements" : undefined}
+          className={!isBM ? "opacity-60" : ""}
         />
       </div>
 
       <section className="mt-10">
         <div className="flex items-baseline justify-between mb-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          <h2 className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
             Open work orders
           </h2>
           <Link href="/team/work-orders" className="text-xs text-accent hover:underline">
@@ -96,9 +95,11 @@ export default async function TeamHome() {
                       Opened by {wo.openedBy ? (wo.openedBy.name || wo.openedBy.email) : "—"} · {formatRelative(wo.createdAt)}
                     </div>
                   </div>
-                  <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm border shrink-0 ${STATUS_TONE[wo.status]}`}>
-                    {wo.status.replace("_", " ")}
-                  </span>
+                  <StatusPill
+                    label={wo.status.replace("_", " ")}
+                    tone={workOrderTone(wo.status)}
+                    className="shrink-0"
+                  />
                 </div>
               </li>
             ))}
@@ -107,20 +108,4 @@ export default async function TeamHome() {
       </section>
     </main>
   );
-}
-
-function StatLink({ href, value, label }: { href: string | null; value: number; label: string }) {
-  const inner = (
-    <>
-      <div className="text-3xl md:text-4xl font-semibold tabular-nums">{value}</div>
-      <div className="text-sm text-muted-foreground mt-1">{label}</div>
-    </>
-  );
-  const className = "block p-5 bg-card border border-border rounded-md transition-colors";
-  if (href) {
-    return (
-      <Link href={href} className={`${className} hover:border-accent`}>{inner}</Link>
-    );
-  }
-  return <div className={`${className} opacity-60`}>{inner}</div>;
 }

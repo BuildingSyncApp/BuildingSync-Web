@@ -7,9 +7,21 @@ import { formatRelative } from "@/lib/format";
 export default async function AnnouncementsPage() {
   const { appUser } = await requireUser();
 
+  // Audience filter: residents see "all" + (their unit) for specific_units;
+  // tenants additionally see "tenants_only". Excludes soft-deleted.
   const announcements = appUser.buildingId
     ? await prisma.announcement.findMany({
-        where: { buildingId: appUser.buildingId },
+        where: {
+          buildingId: appUser.buildingId,
+          deletedAt: null,
+          OR: [
+            { audience: "all" },
+            ...(appUser.role === "tenant" ? [{ audience: "tenants_only" as const }] : []),
+            ...(appUser.unitId
+              ? [{ audience: "specific_units" as const, targetUnitIds: { has: appUser.unitId } }]
+              : []),
+          ],
+        },
         orderBy: { createdAt: "desc" },
         take: 50,
       })

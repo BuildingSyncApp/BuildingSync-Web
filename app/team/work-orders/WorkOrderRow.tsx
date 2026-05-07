@@ -4,8 +4,18 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { StatusPill, workOrderTone } from "@/components/StatusPill";
+import { WorkOrderNotes } from "./WorkOrderNotes";
 
 type Status = "open" | "in_progress" | "scheduled" | "completed" | "closed";
+
+type Note = {
+  id: string;
+  body: string;
+  createdAt: string;
+  authorName: string | null;
+  authorEmail: string;
+};
 
 type Props = {
   workOrder: {
@@ -18,6 +28,7 @@ type Props = {
     unitLabel: string | null;
     assignedToLabel: string | null;
   };
+  notes: Note[];
   canAct: boolean;
 };
 
@@ -39,15 +50,7 @@ const NEXT_LABEL: Record<string, string> = {
   completed: "Close",
 };
 
-const STATUS_TONE: Record<string, string> = {
-  open: "bg-accent/10 text-accent border-accent/30",
-  in_progress: "bg-foreground/5 text-foreground border-border",
-  scheduled: "bg-muted text-muted-foreground border-border",
-  completed: "bg-muted/50 text-muted-foreground border-border",
-  closed: "bg-muted/50 text-muted-foreground border-border line-through",
-};
-
-export function WorkOrderRow({ workOrder, canAct }: Props) {
+export function WorkOrderRow({ workOrder, notes, canAct }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -88,9 +91,7 @@ export function WorkOrderRow({ workOrder, canAct }: Props) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium">{workOrder.title}</span>
-            <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm border ${STATUS_TONE[workOrder.status]}`}>
-              {workOrder.status.replace("_", " ")}
-            </span>
+            <StatusPill label={workOrder.status.replace("_", " ")} tone={workOrderTone(workOrder.status)} />
             {workOrder.unitLabel && (
               <span className="text-xs text-muted-foreground">Unit {workOrder.unitLabel}</span>
             )}
@@ -139,6 +140,7 @@ export function WorkOrderRow({ workOrder, canAct }: Props) {
           </button>
         )}
       </div>
+      <WorkOrderNotes workOrderId={workOrder.id} notes={notes} />
     </motion.li>
   );
 }

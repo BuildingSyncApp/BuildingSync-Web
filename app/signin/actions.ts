@@ -23,6 +23,12 @@ export async function resolvePortalUrl(): Promise<string> {
       : `https://${ADMIN_HOST}/platform`;
   }
 
+  // BM accounts go through admin verification before they can use /team.
+  // FM and concierge are hired by an already-verified BM, so they skip
+  // the gate. Other roles never need it.
+  if (appUser.role === "building_manager" && !appUser.verifiedAt) {
+    return "/onboarding/pending";
+  }
   if (appUser.role === "building_manager" || appUser.role === "facility_manager" || appUser.role === "concierge") {
     return "/team";
   }

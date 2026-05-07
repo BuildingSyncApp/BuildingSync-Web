@@ -3,14 +3,8 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { EmptyState } from "@/components/EmptyState";
 import { formatRelative } from "@/lib/format";
+import { StatusPill, workOrderTone } from "@/components/StatusPill";
 import { MaintenanceForm } from "./MaintenanceForm";
-
-const STATUS_TONE: Record<string, string> = {
-  open: "bg-accent/10 text-accent border-accent/30",
-  assigned: "bg-muted text-muted-foreground border-border",
-  in_progress: "bg-foreground/5 text-foreground border-border",
-  closed: "bg-muted/50 text-muted-foreground border-border line-through",
-};
 
 export default async function MaintenancePage() {
   const { appUser } = await requireUser();
@@ -47,9 +41,7 @@ export default async function MaintenancePage() {
               <li key={wo.id} className="bg-card border border-border rounded-md p-4">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <span className="font-medium">{wo.issue}</span>
-                  <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm border ${STATUS_TONE[wo.status]}`}>
-                    {wo.status.replace("_", " ")}
-                  </span>
+                  <StatusPill label={wo.status.replace("_", " ")} tone={workOrderTone(wo.status)} />
                 </div>
                 {wo.description && <p className="mt-2 text-sm text-muted-foreground">{wo.description}</p>}
                 <p className="mt-3 text-xs text-muted-foreground/85">

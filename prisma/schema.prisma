@@ -81,6 +81,33 @@ enum AmenityApprovalPolicy {
   manager_approval
 }
 
+enum IncidentType {
+  security
+  safety
+  noise
+  damage
+  other
+}
+
+enum IncidentSeverity {
+  low
+  medium
+  high
+  urgent
+}
+
+enum IncidentStatus {
+  open
+  in_progress
+  resolved
+}
+
+enum AnnouncementAudience {
+  all
+  tenants_only
+  specific_units
+}
+
 // ─── Models ───────────────────────────────────────────────────────
 
 // Mirror of Supabase auth.users keyed by the same uuid (auth.uid()).
@@ -104,6 +131,9 @@ model User {
   isActive        Boolean   @default(true)
   isOrgAdmin      Boolean   @default(false)
   isBillingOwner  Boolean   @default(false)
+  // Set when admin verifies a building_manager signup. Other roles are
+  // auto-verified — gate only applies to BM. Null = pending review.
+  verifiedAt      DateTime?
   lastLoginAt     DateTime?
   archivedAt      DateTime?
   archiveReason   String?
@@ -115,14 +145,17 @@ model User {
   leases            Lease[]
   workOrdersOpened  WorkOrder[]     @relation("WorkOrderOpener")
   workOrdersAssign  WorkOrder[]     @relation("WorkOrderAssignee")
+  workOrderNotes    WorkOrderNote[] @relation("WorkOrderNoteAuthor")
   announcementsBy   Announcement[]  @relation("AnnouncementAuthor")
   documentsBy       Document[]      @relation("DocumentUploader")
+  incidentsReported Incident[]      @relation("IncidentReporter")
   auditLogs         AuditLog[]      @relation("AuditActor")
 
   @@index([buildingId])
   @@index([role])
   @@index([unitId])
   @@index([archivedAt])
+  @@index([verifiedAt])
 }
 
 model Building {
@@ -154,6 +187,7 @@ model Building {
   workOrders    WorkOrder[]
   announcements Announcement[]
   documents     Document[]
+  incidents     Incident[]
   auditLogs     AuditLog[]
 }
 
@@ -227,10 +261,28 @@ model WorkOrder {
   building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
   openedBy   User?    @relation("WorkOrderOpener",   fields: [openedById], references: [id], onDelete: SetNull)
   assignee   User?    @relation("WorkOrderAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  notes      WorkOrderNote[]
 
   @@index([buildingId, status])
   @@index([assigneeId])
   @@index([openedById])
+}
+
+// Threaded notes on a work order. BM/FM/concierge in the same building
+// can post; resident sees them via /dashboard/maintenance (read-only).
+// Append-only — no edit, no delete in R1.
+model WorkOrderNote {
+  id          String   @id @default(cuid())
+  workOrderId String
+  authorId    String
+  body        String
+  createdAt   DateTime @default(now())
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  author    User      @relation("WorkOrderNoteAuthor", fields: [authorId], references: [id])
+
+  @@index([workOrderId, createdAt])
+  @@index([authorId])
 }
 
 model Payment {
@@ -250,19 +302,25 @@ model Payment {
 // CASL/PIPEDA-grade announcement broadcast. Soft-delete via deletedAt
 // so an audit trail is preserved.
 model Announcement {
-  id         String   @id @default(cuid())
-  buildingId String
-  authorId   String
-  title      String
-  body       String
-  createdAt  DateTime @default(now())
-  deletedAt  DateTime?
+  id            String               @id @default(cuid())
+  buildingId    String
+  authorId      String
+  title         String
+  body          String
+  // Audience targeting added in PR5. "all" goes to every resident+tenant
+  // in the building. "tenants_only" filters residents out (useful for
+  // rent / lease comms). "specific_units" uses targetUnitIds.
+  audience      AnnouncementAudience @default(all)
+  targetUnitIds String[]             @default([])
+  createdAt     DateTime             @default(now())
+  deletedAt     DateTime?
 
   building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
   author   User     @relation("AnnouncementAuthor", fields: [authorId], references: [id])
 
   @@index([buildingId, createdAt(sort: Desc)])
   @@index([deletedAt])
+  @@index([audience])
 }
 
 // Building-scoped document library. Files live in Supabase Storage; this
@@ -289,6 +347,31 @@ model Document {
   @@index([buildingId, visibility, deletedAt])
   @@index([uploadedById])
   @@index([createdAt(sort: Desc)])
+}
+
+// Building incidents (security, safety, noise, damage). Reported by
+// concierge/BM/FM, viewed and resolved by BM/FM. Different lifecycle
+// from WorkOrder — incidents track an *event*, not a maintenance task.
+model Incident {
+  id             String           @id @default(cuid())
+  buildingId     String
+  reportedById   String
+  type           IncidentType
+  severity       IncidentSeverity @default(medium)
+  status         IncidentStatus   @default(open)
+  title          String
+  description    String?
+  location       String?
+  resolvedAt     DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  building   Building @relation(fields: [buildingId],   references: [id], onDelete: Cascade)
+  reportedBy User     @relation("IncidentReporter", fields: [reportedById], references: [id])
+
+  @@index([buildingId, status])
+  @@index([buildingId, createdAt(sort: Desc)])
+  @@index([reportedById])
 }
 
 // Append-only audit trail. Matches the live DB shape (userId/resource/

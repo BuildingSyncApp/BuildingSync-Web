@@ -14,7 +14,14 @@ export async function requireRole(allowed: UserRole[]) {
 }
 
 export async function requireTeam() {
-  return requireRole(TEAM_ROLES);
+  const session = await requireRole(TEAM_ROLES);
+  // Building Manager accounts go through admin verification first. Without
+  // this gate, an unverified BM could type /team in the URL bar and bypass
+  // the sign-in routing redirect.
+  if (session.appUser.role === "building_manager" && !session.appUser.verifiedAt) {
+    redirect("/onboarding/pending");
+  }
+  return session;
 }
 
 export function canAssign(role: UserRole) {

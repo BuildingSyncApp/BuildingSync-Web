@@ -7,6 +7,8 @@ import { sendEmailFireAndForget, announcementBroadcastEmail } from "@/lib/email"
 const Body = z.object({
   title: z.string().trim().min(1).max(200),
   body: z.string().trim().min(1).max(5000),
+  audience: z.enum(["all", "tenants_only", "specific_units"]).default("all"),
+  targetUnitIds: z.array(z.string()).default([]),
 });
 
 export async function POST(request: NextRequest) {
@@ -24,25 +26,50 @@ export async function POST(request: NextRequest) {
   const parsed = Body.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "invalid_body" }, { status: 400 });
 
+  const { title, body, audience, targetUnitIds } = parsed.data;
+
+  // Building-scope check on targetUnitIds: every unit must belong to this
+  // building. Prevents a BM from spamming a unit across buildings.
+  if (audience === "specific_units") {
+    if (targetUnitIds.length === 0) {
+      return NextResponse.json({ error: "specific_units_no_units" }, { status: 400 });
+    }
+    const validCount = await prisma.unit.count({
+      where: { id: { in: targetUnitIds }, buildingId: appUser.buildingId },
+    });
+    if (validCount !== targetUnitIds.length) {
+      return NextResponse.json({ error: "unit_not_in_building" }, { status: 400 });
+    }
+  }
+
   const announcement = await prisma.announcement.create({
     data: {
       buildingId: appUser.buildingId,
       authorId: appUser.id,
-      title: parsed.data.title,
-      body: parsed.data.body,
+      title,
+      body,
+      audience,
+      targetUnitIds: audience === "specific_units" ? targetUnitIds : [],
     },
   });
 
-  // Broadcast to active residents/tenants in this building.
+  // Resolve recipient set based on audience.
+  const recipientFilter: {
+    buildingId: string;
+    role: { in: ("resident" | "tenant")[] };
+    isActive: true;
+    unitId?: { in: string[] };
+  } = {
+    buildingId: appUser.buildingId,
+    role: { in: audience === "tenants_only" ? ["tenant"] : ["resident", "tenant"] },
+    isActive: true,
+  };
+  if (audience === "specific_units") {
+    recipientFilter.unitId = { in: targetUnitIds };
+  }
+
   const [recipients, building] = await Promise.all([
-    prisma.user.findMany({
-      where: {
-        buildingId: appUser.buildingId,
-        role: { in: ["resident", "tenant"] },
-        isActive: true,
-      },
-      select: { email: true },
-    }),
+    prisma.user.findMany({ where: recipientFilter, select: { email: true } }),
     prisma.building.findUnique({ where: { id: appUser.buildingId }, select: { name: true } }),
   ]);
   if (recipients.length > 0) {
@@ -57,5 +84,8 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  return NextResponse.json({ announcement }, { status: 201 });
+  return NextResponse.json(
+    { announcement, recipientCount: recipients.length },
+    { status: 201 },
+  );
 }
