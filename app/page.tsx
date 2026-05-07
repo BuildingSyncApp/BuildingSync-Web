@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { LinkButton, Wordmark } from "@/components/ui";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SplitFlapText } from "@/components/SplitFlapText";
+import { ProductHighlights } from "@/components/ProductHighlights";
 
 const ADMIN_HOST = process.env.ADMIN_HOST || "admin.buildingsync.app";
 
@@ -67,6 +68,7 @@ export default async function Home({ searchParams }: { searchParams: SP }) {
       <main className="pt-16 md:pt-20">
         <Hero portalUrl={portalUrl} portalLabel={portalLabel} />
         <Pathways />
+        <ProductHighlights />
         <Principles />
         <Pricing />
         <Faq />
@@ -85,8 +87,9 @@ function SiteHeader({ portalUrl, portalLabel }: { portalUrl: string | null; port
           <Wordmark className="text-base md:text-lg" />
         </Link>
 
-        <nav className="hidden md:flex items-center gap-7 text-sm">
+        <nav className="hidden md:flex items-center gap-6 text-sm">
           <a href="#pathways" className="text-muted-foreground hover:text-foreground transition-colors">For your role</a>
+          <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">Features</a>
           <a href="#principles" className="text-muted-foreground hover:text-foreground transition-colors">Pillars</a>
           <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
           <a href="#faq" className="text-muted-foreground hover:text-foreground transition-colors">FAQ</a>
@@ -536,6 +539,7 @@ function SiteFooter() {
           <p className="font-mono text-[10px] uppercase tracking-widest text-foreground">Product</p>
           <ul className="mt-3 space-y-2 font-mono text-xs text-muted-foreground">
             <li><a href="#pathways" className="hover:text-foreground transition-colors">For your role</a></li>
+            <li><a href="#features" className="hover:text-foreground transition-colors">Features</a></li>
             <li><a href="#principles" className="hover:text-foreground transition-colors">Pillars</a></li>
             <li><a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a></li>
             <li><a href="#faq" className="hover:text-foreground transition-colors">FAQ</a></li>
