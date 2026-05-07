@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { bulkAddResidents } from "./actions";
 
 type Result =
@@ -19,21 +20,37 @@ alice@example.com,resident,201
 bob@example.com,tenant,202
 charlie@example.com,resident,`;
 
+const inputClass =
+  "w-full bg-background border border-border rounded-md px-3 py-2.5 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/30 transition-colors";
+
 export function BulkAddForm() {
   const [state, formAction, pending] = useActionState<Result, FormData>(bulkAddResidents, null);
+  const [copiedAll, setCopiedAll] = useState(false);
+
+  function copyAll(rows: NonNullable<Extract<Result, { ok: true }>>["rows"]) {
+    if (!navigator.clipboard) return;
+    const text = rows
+      .filter((r) => r.password)
+      .map((r) => `${r.email},${r.password}`)
+      .join("\n");
+    navigator.clipboard.writeText(text);
+    setCopiedAll(true);
+    setTimeout(() => setCopiedAll(false), 1500);
+  }
 
   return (
-    <form action={formAction} className="mt-4 space-y-3">
-      <p className="text-xs text-muted-foreground">
-        Paste CSV with columns: <code className="font-mono">email, role, unit</code>. Header row optional. Role defaults to <code className="font-mono">resident</code>; unit can be blank. Existing users are re-linked.
+    <form action={formAction} className="mt-4 space-y-4">
+      <p className="text-xs text-muted-foreground leading-relaxed">
+        Paste CSV with columns: <code className="font-mono">email, role, unit</code>. Header row optional. Role
+        defaults to <code className="font-mono">resident</code>; unit can be blank. Existing users are re-linked.
       </p>
       <textarea
         name="csv"
         rows={6}
         placeholder={SAMPLE}
-        className="w-full px-3 py-2 rounded-md border border-border bg-input/30 outline-none focus:ring-2 focus:ring-ring focus:border-ring transition font-mono text-xs"
+        className={`${inputClass} font-mono text-xs`}
       />
-      <div className="flex items-center gap-3 text-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-xs">
         <span className="text-muted-foreground">or upload a .csv file:</span>
         <input
           type="file"
@@ -46,63 +63,91 @@ export function BulkAddForm() {
       <button
         type="submit"
         disabled={pending}
-        className="px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        className="inline-flex items-center justify-center gap-2 bg-accent text-accent-foreground px-4 py-2 rounded-md text-sm font-semibold hover:bg-accent/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {pending ? "Onboarding…" : "Onboard batch"}
       </button>
 
-      {state && state.ok === false && (
-        <p className="text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-md px-3 py-2">
-          {state.error}
-        </p>
-      )}
-      {state && state.ok === true && (
-        <div className="bg-card border border-border rounded-md p-4 text-sm space-y-3">
-          <p className="font-medium">
-            <span className="text-accent">{state.created} created</span>
-            {" · "}
-            <span className="text-muted-foreground">{state.linked} re-linked</span>
-            {state.errors.length > 0 && (
-              <>{" · "}<span className="text-destructive">{state.errors.length} errors</span></>
-            )}
-          </p>
+      <AnimatePresence mode="wait">
+        {state && state.ok === false && (
+          <motion.div
+            key="err"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            role="alert"
+            className="rounded-md border border-red-500/40 bg-red-500/5 px-3 py-2 text-sm text-red-600 dark:text-red-400"
+          >
+            {state.error}
+          </motion.div>
+        )}
+        {state && state.ok === true && (
+          <motion.div
+            key="ok"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            role="status"
+            className="bg-card border border-border rounded-md p-4 text-sm space-y-3"
+          >
+            <p className="font-medium flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="text-accent">{state.created} created</span>
+              <span className="text-muted-foreground">·</span>
+              <span className="text-muted-foreground">{state.linked} re-linked</span>
+              {state.errors.length > 0 && (
+                <>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="text-red-600 dark:text-red-400">{state.errors.length} errors</span>
+                </>
+              )}
+            </p>
 
-          {state.rows.filter((r) => r.password).length > 0 && (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                Temporary passwords (share with each resident)
-              </p>
-              <div className="font-mono text-xs space-y-1 bg-background/40 border border-border rounded p-3 max-h-48 overflow-y-auto">
-                {state.rows
-                  .filter((r) => r.password)
-                  .map((r) => (
-                    <div key={r.row} className="flex justify-between gap-3">
-                      <span className="select-all">{r.email}</span>
-                      <span className="select-all text-accent">{r.password}</span>
-                    </div>
-                  ))}
+            {state.rows.filter((r) => r.password).length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Temporary passwords
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => copyAll(state.rows)}
+                    className="px-2 py-1 rounded text-[10px] uppercase tracking-wider border border-border hover:border-accent hover:text-accent transition-colors"
+                  >
+                    {copiedAll ? "Copied" : "Copy all"}
+                  </button>
+                </div>
+                <div className="font-mono text-xs space-y-1 bg-background/40 border border-border rounded p-3 max-h-48 overflow-y-auto">
+                  {state.rows
+                    .filter((r) => r.password)
+                    .map((r) => (
+                      <div key={r.row} className="flex justify-between gap-3">
+                        <span className="select-all truncate min-w-0">{r.email}</span>
+                        <span className="select-all text-accent shrink-0">{r.password}</span>
+                      </div>
+                    ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {state.errors.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-destructive mb-2">Errors</p>
-              <ul className="space-y-1 text-xs">
-                {state.errors.map((e) => (
-                  <li key={e.row}>
-                    <span className="text-muted-foreground">Row {e.row}</span>
-                    {" · "}
-                    <span>{e.email || "—"}</span>
-                    {" · "}
-                    <span className="text-destructive">{e.error}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
+            {state.errors.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-red-600 dark:text-red-400 mb-2">Errors</p>
+                <ul className="space-y-1 text-xs">
+                  {state.errors.map((e) => (
+                    <li key={e.row}>
+                      <span className="text-muted-foreground">Row {e.row}</span>
+                      <span className="text-muted-foreground"> · </span>
+                      <span>{e.email || "—"}</span>
+                      <span className="text-muted-foreground"> · </span>
+                      <span className="text-red-600 dark:text-red-400">{e.error}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </form>
   );
 }
