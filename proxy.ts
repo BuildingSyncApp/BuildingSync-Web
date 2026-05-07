@@ -18,7 +18,7 @@ const PASS_THROUGH_PREFIXES = [
 
 const STATIC_FILE = /\.(svg|png|jpe?g|gif|webp|ico|js|css|json|webmanifest|txt|map)$/i;
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const response = await updateSession(request);
   const host = request.headers.get("host") || "";
   const isAdmin = host === ADMIN_HOST || host.startsWith("admin.");

@@ -1,0 +1,94 @@
+name: guard
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+# Substitutes for the GitHub "push ruleset" feature (Enterprise only). Fails any
+# PR whose diff adds files matching forbidden patterns or files exceeding 50 MB.
+# This is a defense-in-depth layer on top of `.gitignore` and Secret Protection
+# push protection (which only catches *known* secret patterns like sk_test_…).
+
+jobs:
+  check-forbidden-files:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect forbidden file paths
+        run: |
+          FORBIDDEN_REGEXES=(
+            '(^|/)\.env$'
+            '(^|/)\.env\.local$'
+            '(^|/)\.env\.production$'
+            '(^|/)\.env\.development$'
+            '(^|/)\.env\.test$'
+            '(^|/)credentials\.json$'
+            '(^|/)secrets\.json$'
+            '(^|/)id_rsa(\.pub)?$'
+            '(^|/)id_ed25519(\.pub)?$'
+            '(^|/)id_ecdsa(\.pub)?$'
+          )
+
+          CHANGED=$(git diff --name-only --diff-filter=A "origin/${{ github.base_ref }}...HEAD")
+          if [ -z "$CHANGED" ]; then
+            echo "✓ No newly added files in PR diff"
+            exit 0
+          fi
+
+          BAD_FILES=""
+          while IFS= read -r f; do
+            for re in "${FORBIDDEN_REGEXES[@]}"; do
+              if echo "$f" | grep -qE "$re"; then
+                BAD_FILES+="  - $f (matches /$re/)"$'\n'
+                break
+              fi
+            done
+          done <<< "$CHANGED"
+
+          if [ -n "$BAD_FILES" ]; then
+            echo "::error::Forbidden file paths detected in PR diff:"
+            echo "$BAD_FILES"
+            echo ""
+            echo "These file types are blocked because they typically contain credentials,"
+            echo "private keys, or other sensitive data that must never be committed."
+            echo ""
+            echo "If this is intentional (e.g. you're adding a new template like .env.example),"
+            echo "edit .github/workflows/guard.yml to allow it."
+            exit 1
+          fi
+
+          echo "✓ No forbidden file paths in PR diff"
+
+      - name: Detect oversized files (>50 MB)
+        run: |
+          MAX_SIZE_BYTES=$((50 * 1024 * 1024))
+
+          CHANGED=$(git diff --name-only --diff-filter=AM "origin/${{ github.base_ref }}...HEAD")
+          if [ -z "$CHANGED" ]; then
+            echo "✓ No added/modified files to size-check"
+            exit 0
+          fi
+
+          BAD_FILES=""
+          while IFS= read -r f; do
+            if [ -f "$f" ]; then
+              size=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f" 2>/dev/null || echo 0)
+              if [ "$size" -gt "$MAX_SIZE_BYTES" ]; then
+                BAD_FILES+="  - $f ($((size / 1024 / 1024)) MB)"$'\n'
+              fi
+            fi
+          done <<< "$CHANGED"
+
+          if [ -n "$BAD_FILES" ]; then
+            echo "::error::Files exceeding 50 MB detected:"
+            echo "$BAD_FILES"
+            echo ""
+            echo "Use Git LFS for large binaries, or store them outside the repo."
+            exit 1
+          fi
+
+          echo "✓ No oversized files in PR diff"
