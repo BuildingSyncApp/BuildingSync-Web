@@ -20,6 +20,17 @@ const supabase = createSupabaseClient(
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
 );
 
+// Service-role client for admin-only operations (password rotation on
+// existing users). Falls back to null if service key isn't set, in
+// which case the script can still create new users but won't reset
+// existing passwords.
+const supabaseAdmin = process.env.SUPABASE_SERVICE_ROLE_KEY
+  ? createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+    )
+  : null;
+
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
 });
@@ -62,7 +73,19 @@ async function main() {
 
     if (existing) {
       await prisma.user.update({ where: { id: existing.id }, data: linkData });
-      console.log(`${u.email.padEnd(40)} role=${u.role.padEnd(20)} updated`);
+      // Also rotate the Supabase Auth password if a service-role client
+      // is configured. Without this, existing test users keep their
+      // original (possibly leaked) password forever.
+      let pwNote = "";
+      if (supabaseAdmin) {
+        const { error } = await supabaseAdmin.auth.admin.updateUserById(existing.id, {
+          password: PASSWORD,
+        });
+        pwNote = error ? ` (password rotate FAILED: ${error.message})` : " + password rotated";
+      } else {
+        pwNote = " (password NOT rotated — set SUPABASE_SERVICE_ROLE_KEY to enable)";
+      }
+      console.log(`${u.email.padEnd(40)} role=${u.role.padEnd(20)} updated${pwNote}`);
       continue;
     }
 
