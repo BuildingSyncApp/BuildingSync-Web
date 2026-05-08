@@ -41,8 +41,19 @@ export function AccountMenu({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const formRef = useRef<HTMLFormElement>(null);
   const { confirm, dialog } = useConfirm();
+
+  // Sign-out POST is fired imperatively rather than via a ref-to-form
+  // inside the dropdown, because closing the dropdown unmounts that form
+  // (AnimatePresence) before the confirm dialog's onConfirm runs, which
+  // would null out the ref and silently do nothing.
+  function submitSignOut() {
+    const form = document.createElement("form");
+    form.method = "post";
+    form.action = "/auth/signout";
+    document.body.appendChild(form);
+    form.submit();
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -173,30 +184,28 @@ export function AccountMenu({
             </div>
 
             <div className="border-t border-border py-1.5">
-              <form ref={formRef} action="/auth/signout" method="post">
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setOpen(false);
-                    confirm({
-                      title: "Sign out?",
-                      description: "You'll be returned to the sign-in page.",
-                      confirmLabel: "Sign out",
-                      destructive: false,
-                      onConfirm: () => formRef.current?.submit(),
-                    });
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-muted/40 transition-colors text-left"
-                >
-                  <svg className="w-4 h-4 text-muted-foreground shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                    <polyline points="16 17 21 12 16 7" />
-                    <line x1="21" y1="12" x2="9" y2="12" />
-                  </svg>
-                  Sign out
-                </button>
-              </form>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  confirm({
+                    title: "Sign out?",
+                    description: "You'll be returned to the sign-in page.",
+                    confirmLabel: "Sign out",
+                    destructive: false,
+                    onConfirm: submitSignOut,
+                  });
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-muted/40 transition-colors text-left"
+              >
+                <svg className="w-4 h-4 text-muted-foreground shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                Sign out
+              </button>
             </div>
           </motion.div>
         )}
