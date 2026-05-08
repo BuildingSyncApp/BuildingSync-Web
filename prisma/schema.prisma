@@ -239,6 +239,7 @@ model Lease {
 
   @@index([tenantId])
   @@index([unitId])
+  @@index([buildingId])
 }
 
 model WorkOrder {
@@ -321,6 +322,7 @@ model Announcement {
   @@index([buildingId, createdAt(sort: Desc)])
   @@index([deletedAt])
   @@index([audience])
+  @@index([authorId])
 }
 
 // Building-scoped document library. Files live in Supabase Storage; this
