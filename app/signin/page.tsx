@@ -72,7 +72,20 @@ function SignInPageInner() {
     toast.success("Welcome back", { description: email });
     // Resolve destination on the server (knows the user's role + onboarding
     // state) so we navigate directly there instead of flashing through "/".
-    const dest = await resolvePortalUrl().catch(() => "/dashboard");
+    let dest: string;
+    try {
+      dest = await resolvePortalUrl();
+    } catch (err) {
+      // Surface the real failure (DB connectivity, etc.) instead of silently
+      // dumping the user on /dashboard — that masks prod issues.
+      console.error("resolvePortalUrl failed", err);
+      setError(
+        err instanceof Error
+          ? `Sign-in succeeded but routing failed: ${err.message}`
+          : "Sign-in succeeded but the server couldn't determine your destination. Please refresh and try again.",
+      );
+      return;
+    }
     if (dest.startsWith("http")) {
       window.location.href = dest;
     } else {
