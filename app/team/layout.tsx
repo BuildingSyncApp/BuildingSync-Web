@@ -37,6 +37,10 @@ export default async function TeamLayout({ children }: { children: React.ReactNo
     items.push({ href: "/team/packages", label: "Packages" });
   }
   items.push({ href: "/team/documents", label: "Documents" });
+  if (appUser.role === "building_manager") {
+    items.push({ href: "/team/access-requests", label: "Access" });
+    items.push({ href: "/team/audit-log", label: "Audit log" });
+  }
 
   return (
     <PortalShell

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { PortalShell } from "@/components/PortalShell";
+import { ResidentShell } from "@/components/ResidentShell";
 import type { MobileNavItem } from "@/components/MobileMenu";
 import { getNotifications } from "@/lib/notifications";
 
@@ -22,17 +22,22 @@ export default async function DashboardLayout({ children }: { children: React.Re
     return [];
   });
 
-  // Resident IA — Account lives in the AccountMenu dropdown.
+  // Desktop top-nav. On mobile the bottom-tab bar handles primary nav;
+  // these still appear in the hamburger drawer for completeness.
   const navItems: MobileNavItem[] = [
-    { href: "/dashboard/maintenance", label: "Maintenance" },
     { href: "/dashboard/announcements", label: "Announcements" },
+    { href: "/dashboard/amenities", label: "Amenities" },
+    { href: "/dashboard/events", label: "Events" },
+    { href: "/dashboard/deliveries", label: "Deliveries" },
+    { href: "/dashboard/maintenance", label: "Maintenance" },
     { href: "/dashboard/documents", label: "Documents" },
+    ...(appUser.role === "tenant"
+      ? [{ href: "/dashboard/payments", label: "Pay rent" }]
+      : []),
   ];
 
   return (
-    <PortalShell
-      portalLabel="Home"
-      portalHome="/dashboard"
+    <ResidentShell
       navItems={navItems}
       userName={appUser.name}
       userEmail={authUser.email!}
@@ -40,6 +45,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
       notifications={notifications}
     >
       {children}
-    </PortalShell>
+    </ResidentShell>
   );
 }

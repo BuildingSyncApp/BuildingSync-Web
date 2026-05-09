@@ -77,7 +77,7 @@ export function PwaInstallPrompt() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 80, opacity: 0 }}
           transition={{ duration: 0.3, ease: "easeOut" }}
-          className="fixed bottom-3 left-3 right-3 z-[60] max-w-md mx-auto pointer-events-none"
+          className="fixed bottom-3 left-3 right-3 z-60 max-w-md mx-auto pointer-events-none"
         >
           <div className="pointer-events-auto bg-card border border-accent/40 rounded-xl shadow-2xl p-4 flex items-start gap-3">
             <div
@@ -93,7 +93,16 @@ export function PwaInstallPrompt() {
               <p className="text-sm font-semibold text-foreground">Install BuildingSync</p>
               {isIOS ? (
                 <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                  Tap <span className="font-mono">Share</span> below, then{" "}
+                  In Safari, tap the{" "}
+                  <span className="inline-flex items-center gap-0.5 font-mono">
+                    <svg className="w-3 h-3 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                      <polyline points="16 6 12 2 8 6" />
+                      <line x1="12" y1="2" x2="12" y2="15" />
+                    </svg>
+                    Share
+                  </span>
+                  {" "}icon, then{" "}
                   <span className="font-mono">Add to Home Screen</span>.
                 </p>
               ) : (
@@ -116,7 +125,7 @@ export function PwaInstallPrompt() {
                   onClick={dismiss}
                   className="px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  Not now
+                  {isIOS ? "Got it" : "Not now"}
                 </button>
               </div>
             </div>

@@ -4,16 +4,15 @@
 // file models only the tables Website-Beta R1 actually uses, preserving
 // the live column names (e.g. WorkOrder.issue, Lease.leaseStartDate).
 //
-// R&D-only tables that exist on the database but aren't modeled here
-// (and we don't need for R1):
-//   Amenity, AmenityRule, AmenityBooking, GuestVisit, VendorAccess,
-//   Notification, NotificationSetting, NotificationTemplate, Integration,
-//   SystemConfig, License, AiUsage, Session, MFACode, Permission,
-//   Device, Telemetry, Alert, governance_*, owner_banks, vendor_*,
-//   marketplace_listings, organizations (snake_case dup), users (dup),
-//   audit_log (dup), user_roles, user_profiles, invites.
-// They can be added later via `prisma db pull` if Website-Beta absorbs
-// any of those features.
+// R&D-only tables that exist on the database but aren't modeled here:
+//   GuestVisit, VendorAccess, Notification, NotificationSetting,
+//   NotificationTemplate, Integration, SystemConfig, License, AiUsage,
+//   Session, MFACode, Permission, Device, Telemetry, Alert, governance_*,
+//   owner_banks, vendor_*, marketplace_listings, organizations
+//   (snake_case dup), users (dup), audit_log (dup), user_roles,
+//   user_profiles, invites.
+// Amenity/AmenityRule/AmenityBooking/Event/Post/Delivery were added in
+// the v2 resident-design migration and are modeled below.
 
 generator client {
   provider = "prisma-client-js"
@@ -140,16 +139,21 @@ model User {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  building          Building?       @relation(fields: [buildingId], references: [id], onDelete: SetNull)
-  unitRel           Unit?           @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  building          Building?        @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  unitRel           Unit?            @relation(fields: [unitId], references: [id], onDelete: SetNull)
   leases            Lease[]
-  workOrdersOpened  WorkOrder[]     @relation("WorkOrderOpener")
-  workOrdersAssign  WorkOrder[]     @relation("WorkOrderAssignee")
-  workOrderNotes    WorkOrderNote[] @relation("WorkOrderNoteAuthor")
-  announcementsBy   Announcement[]  @relation("AnnouncementAuthor")
-  documentsBy       Document[]      @relation("DocumentUploader")
-  incidentsReported Incident[]      @relation("IncidentReporter")
-  auditLogs         AuditLog[]      @relation("AuditActor")
+  workOrdersOpened  WorkOrder[]      @relation("WorkOrderOpener")
+  workOrdersAssign  WorkOrder[]      @relation("WorkOrderAssignee")
+  workOrderNotes    WorkOrderNote[]  @relation("WorkOrderNoteAuthor")
+  announcementsBy   Announcement[]   @relation("AnnouncementAuthor")
+  documentsBy       Document[]       @relation("DocumentUploader")
+  incidentsReported Incident[]       @relation("IncidentReporter")
+  auditLogs         AuditLog[]       @relation("AuditActor")
+  amenityBookings   AmenityBooking[]
+  eventsCreated     Event[]          @relation("EventCreator")
+  posts             Post[]           @relation("PostAuthor")
+  deliveriesIn      Delivery[]       @relation("DeliveryRecipient")
+  deliveriesLogged  Delivery[]       @relation("DeliveryLogger")
 
   @@index([buildingId])
   @@index([role])
@@ -189,6 +193,10 @@ model Building {
   documents     Document[]
   incidents     Incident[]
   auditLogs     AuditLog[]
+  amenities     Amenity[]
+  events        Event[]
+  posts         Post[]
+  deliveries    Delivery[]
 }
 
 model Unit {
@@ -399,4 +407,126 @@ model AuditLog {
   @@index([userId, createdAt])
   @@index([buildingId, createdAt])
   @@index([createdAt])
+}
+
+// ─── v2 resident-design tables ──────────────────────────────────────
+// Added in the v2_resident_amenities_events_posts_deliveries migration.
+// Amenity/AmenityRule/AmenityBooking are ported from R&D; Event/Post/
+// Delivery are designed for Website-Beta.
+
+model Amenity {
+  id                        String                @id
+  buildingId                String
+  name                      String
+  category                  String
+  description               String?
+  isActive                  Boolean               @default(true)
+  bookingRequired           Boolean               @default(false)
+  capacity                  Int?
+  imageUrl                  String?
+  openTime                  String                @default("09:00")
+  closeTime                 String                @default("21:00")
+  slotDurationMinutes       Int                   @default(60)
+  advanceNoticeHours        Int                   @default(0)
+  cleanupBufferMinutes      Int                   @default(0)
+  maxBookingDurationMinutes Int?
+  approvalPolicy            AmenityApprovalPolicy @default(auto_approve)
+  createdAt                 DateTime              @default(now())
+  updatedAt                 DateTime              @updatedAt
+
+  building Building         @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  rules    AmenityRule[]
+  bookings AmenityBooking[]
+
+  @@index([buildingId])
+}
+
+model AmenityRule {
+  id        String   @id
+  amenityId String
+  text      String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  amenity Amenity @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+
+  @@index([amenityId])
+}
+
+model AmenityBooking {
+  id        String        @id
+  amenityId String
+  userId    String
+  startTime DateTime
+  endTime   DateTime
+  status    BookingStatus @default(confirmed)
+  notes     String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  amenity Amenity @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([amenityId, startTime])
+  @@index([userId])
+}
+
+model Event {
+  id          String    @id
+  buildingId  String
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime?
+  location    String?
+  imageUrl    String?
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  building  Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  createdBy User?    @relation("EventCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([buildingId, startTime])
+}
+
+model Post {
+  id         String    @id
+  buildingId String
+  authorId   String
+  title      String
+  body       String
+  category   String    @default("general")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  author   User     @relation("PostAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([buildingId, createdAt(sort: Desc)])
+  @@index([deletedAt])
+}
+
+model Delivery {
+  id              String    @id
+  buildingId      String
+  recipientUserId String
+  loggedById      String?
+  sender          String
+  description     String?
+  pickupCode      String
+  status          String    @default("pending")
+  notes           String?
+  receivedAt      DateTime  @default(now())
+  pickedUpAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  building  Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  recipient User     @relation("DeliveryRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
+  loggedBy  User?    @relation("DeliveryLogger", fields: [loggedById], references: [id], onDelete: SetNull)
+
+  @@index([buildingId, status])
+  @@index([recipientUserId, status])
 }

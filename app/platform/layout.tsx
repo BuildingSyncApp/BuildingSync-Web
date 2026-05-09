@@ -9,6 +9,8 @@ export default async function PlatformLayout({ children }: { children: React.Rea
   const items: MobileNavItem[] = [
     { href: "/platform", label: "Overview" },
     { href: "/platform/users", label: "Users" },
+    { href: "/platform/buildings", label: "Buildings" },
+    { href: "/platform/audit-log", label: "Audit log" },
   ];
 
   return (
