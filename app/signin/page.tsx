@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -24,7 +24,6 @@ export default function SignInPage() {
 }
 
 function SignInPageInner() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
 
@@ -72,13 +71,26 @@ function SignInPageInner() {
     toast.success("Welcome back", { description: email });
     // Resolve destination on the server (knows the user's role + onboarding
     // state) so we navigate directly there instead of flashing through "/".
-    const dest = await resolvePortalUrl().catch(() => "/dashboard");
-    if (dest.startsWith("http")) {
-      window.location.href = dest;
-    } else {
-      router.push(dest);
-      router.refresh();
+    let dest: string;
+    try {
+      dest = await resolvePortalUrl();
+    } catch (err) {
+      // Surface the real failure (DB connectivity, etc.) instead of silently
+      // dumping the user on /dashboard — that masks prod issues.
+      console.error("resolvePortalUrl failed", err);
+      setError(
+        err instanceof Error
+          ? `Sign-in succeeded but routing failed: ${err.message}`
+          : "Sign-in succeeded but the server couldn't determine your destination. Please refresh and try again.",
+      );
+      return;
     }
+    // Hard navigation in all cases. router.push/refresh can race with the
+    // freshly-set Supabase auth cookies, leaving the destination route
+    // rendered without the new session and bouncing back to /signin.
+    // window.location.href forces a full reload, guaranteeing every
+    // subsequent request carries the cookies.
+    window.location.href = dest;
   }
 
   async function onReset(e: React.FormEvent) {

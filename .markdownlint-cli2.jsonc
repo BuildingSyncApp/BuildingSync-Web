@@ -1,0 +1,9 @@
+{
+  // Project-wide markdownlint rules. The .vscode/settings.json mirror of
+  // markdownlint.ignore exists for editors that don't read this file.
+  "ignores": [
+    ".agents/**",
+    "node_modules/**",
+    ".next/**"
+  ]
+}

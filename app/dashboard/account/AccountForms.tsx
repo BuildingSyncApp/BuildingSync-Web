@@ -73,6 +73,7 @@ export function ProfileForm({
 
 export function PasswordForm() {
   const [state, formAction, pending] = useActionState<Result, FormData>(updatePassword, null);
+  const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const strength = useMemo(() => passwordStrength(password), [password]);
@@ -80,6 +81,7 @@ export function PasswordForm() {
   useEffect(() => {
     if (state?.ok) {
       toast.success("Password updated", { description: "You'll use the new password next time." });
+      setCurrentPassword("");
       setPassword("");
     }
     if (state && !state.ok) toast.error("Couldn't update password", { description: state.error });
@@ -87,6 +89,23 @@ export function PasswordForm() {
 
   return (
     <form action={formAction} className="space-y-4">
+      <div>
+        <label htmlFor="account-current-password" className="block text-sm font-medium text-foreground mb-1.5">
+          Current password
+        </label>
+        <input
+          id="account-current-password"
+          name="currentPassword"
+          type="password"
+          required
+          autoComplete="current-password"
+          placeholder="Your existing password"
+          value={currentPassword}
+          onChange={(e) => setCurrentPassword(e.target.value)}
+          className={inputClass}
+        />
+      </div>
+
       <div>
         <label htmlFor="account-password" className="block text-sm font-medium text-foreground mb-1.5">
           New password
@@ -145,7 +164,7 @@ export function PasswordForm() {
 
       <button
         type="submit"
-        disabled={pending || strength.score < 1}
+        disabled={pending || currentPassword.length === 0 || strength.score < 1}
         className={buttonClass}
       >
         {pending ? "Saving…" : "Update password"}

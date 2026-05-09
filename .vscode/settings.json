@@ -1,0 +1,12 @@
+{
+  "liveServer.settings.multiRootWorkspaceName": "Website-Beta",
+
+  "// vscode-edge-devtools": "Disable inline-style + webhint nags. The rule targets vanilla HTML — inline style props are idiomatic in React/Next, and our planned CSP uses style-src 'self' 'unsafe-inline' (industry standard for React) which makes the warning moot.",
+  "vscode-edge-devtools.webhint": false,
+  "css.lint.unknownProperties": "ignore",
+
+  "// markdownlint": "Vendored agent-skill docs in .agents/ are reinstalled by `npx skills add` — any local edit gets clobbered. Don't lint them.",
+  "markdownlint.ignore": [
+    ".agents/**"
+  ]
+}

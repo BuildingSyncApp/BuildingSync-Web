@@ -15,9 +15,10 @@ config({ path: ".env.local" });
 // Dynamic-imported below so dotenv has run before lib/email reads
 // process.env.RESEND_API_KEY at module load.
 
-const APP_URL = process.env.APP_BASE_URL || "https://buildingsync.app";
 const ADMIN_URL = "https://admin.buildingsync.app";
-const TEMP_PASSWORD = "BuildSync2026!Admin";
+// Required env var; never hardcode the value — it ends up in the recipient
+// emails verbatim and any leak in git history triggers secret scanners.
+const TEMP_PASSWORD = process.env.ADMIN_TEMP_PASSWORD;
 
 const ADMINS = [
   { email: "tejaswirajmgr@gmail.com", name: "Tejaswi" },
@@ -51,6 +52,10 @@ async function main() {
     console.error("RESEND_API_KEY missing. Set it in .env.local or pass it via env.");
     process.exit(1);
   }
+  if (!TEMP_PASSWORD) {
+    console.error("ADMIN_TEMP_PASSWORD missing. Set it in .env.local (don't commit) or pass it via env.");
+    process.exit(1);
+  }
 
   // Dynamic import after dotenv config so lib/email captures RESEND_API_KEY.
   const { sendEmail } = await import("../lib/email");
@@ -66,7 +71,7 @@ async function main() {
     }
   }
 
-  console.log(`\nDone. Reminder: rotate ${TEMP_PASSWORD} after the admins sign in (it's in this script's git history once committed; recipients should change their password under Account → Update password).`);
+  console.log("\nDone. Recipients should rotate their password under Account → Update password right after signing in.");
 }
 
 main().catch((err) => {

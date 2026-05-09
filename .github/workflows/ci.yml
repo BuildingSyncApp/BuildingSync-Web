@@ -1,0 +1,37 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      # Repo intentionally doesn't commit package-lock.json (.gitignore line 47,
+      # mirroring the R&D convention). `npm ci` requires a lockfile, so use install.
+      # postinstall runs `prisma generate || true` automatically.
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      # Bundles prisma generate + tsc --noEmit. Devs run `npm run verify` before
+      # pushing; CI runs the same. ESLint is currently disabled in CI — there's
+      # a known config-load error in eslint-config-next@16 + FlatCompat + ESLint
+      # 9.39 (circular ref in config validator). Re-enable once eslint.config.mjs
+      # is migrated to native flat config.
+      - name: Verify
+        run: npm run verify
+
+      # Informational only — Dependabot opens PRs for fixes, so don't block CI
+      # on transitive vulns. --omit=dev skips devDependencies which often have
+      # noisy advisories that don't affect production.
+      - name: Audit production dependencies
+        run: npm audit --audit-level=high --omit=dev || true

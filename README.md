@@ -17,7 +17,7 @@ Production launch repo. Next.js 16 + Supabase + Prisma + Stripe Checkout, deploy
 
 - `buildingsync.app` — marketing + resident/tenant portal
 - `admin.buildingsync.app` — building manager / facility manager / concierge
-  (same Next.js deployment, subdomain rewrite in `middleware.ts`)
+  (same Next.js deployment, subdomain rewrite in `proxy.ts`)
 
 ## Quick start
 

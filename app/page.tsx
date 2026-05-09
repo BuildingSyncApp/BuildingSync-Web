@@ -31,7 +31,7 @@ export default async function Home({ searchParams }: { searchParams: SP }) {
   const host = h.get("host") || "";
   const isAdminHost = host === ADMIN_HOST || host.startsWith("admin.");
 
-  const supabase = createClient(await cookies());
+  const supabase = await createClient(await cookies());
   const { data: { user } } = await supabase.auth.getUser();
 
   const params = await searchParams;

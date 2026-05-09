@@ -1,10 +1,22 @@
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-export const createClient = (cookieStore: Awaited<ReturnType<typeof cookies>>) => {
+// Vercel sets `x-forwarded-for` to a comma-separated list with the
+// real client IP first. Forwarding it lets Supabase's per-IP auth
+// rate limits actually apply behind Vercel — without this, every
+// request looks like it's coming from a Vercel egress IP.
+function clientIpFrom(h: Headers): string | undefined {
+  const xff = h.get("x-forwarded-for");
+  if (xff) return xff.split(",")[0]?.trim();
+  return h.get("x-real-ip") ?? undefined;
+}
+
+export const createClient = async (cookieStore: Awaited<ReturnType<typeof cookies>>) => {
+  const ip = clientIpFrom(await headers());
+
   return createServerClient(supabaseUrl!, supabaseKey!, {
     cookies: {
       getAll() {
@@ -20,5 +32,6 @@ export const createClient = (cookieStore: Awaited<ReturnType<typeof cookies>>) =
         }
       },
     },
+    ...(ip ? { global: { headers: { "X-Forwarded-For": ip } } } : {}),
   });
 };

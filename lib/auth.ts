@@ -9,7 +9,7 @@ import type { User as AppUser } from "@prisma/client";
 // the Supabase auth.uid. New signups land here as `resident` with no
 // building/unit until a Building Manager assigns them.
 export async function getOrCreateAppUser(): Promise<{ authUser: AuthUser; appUser: AppUser } | null> {
-  const supabase = createClient(await cookies());
+  const supabase = await createClient(await cookies());
   const { data: { user } } = await supabase.auth.getUser();
   if (!user || !user.email) return null;
 

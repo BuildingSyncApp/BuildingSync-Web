@@ -43,7 +43,7 @@ export async function savePassword(formData: FormData): Promise<Result> {
   if (!parsed.success) {
     return { ok: false, error: "Password must be at least 8 characters." };
   }
-  const supabase = createClient(await cookies());
+  const supabase = await createClient(await cookies());
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
   if (error) return { ok: false, error: error.message };
   return { ok: true };

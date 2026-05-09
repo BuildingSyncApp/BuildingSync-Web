@@ -1,0 +1,15 @@
+# Default reviewer on all paths
+*  @tejaswirajgit  @sinhaankur
+
+# Extra-sensitive paths — both admins must review
+/.github/                @tejaswirajgit  @sinhaankur
+/proxy.ts                @tejaswirajgit  @sinhaankur
+/lib/auth.ts             @tejaswirajgit  @sinhaankur
+/lib/platform.ts         @tejaswirajgit  @sinhaankur
+/lib/team.ts             @tejaswirajgit  @sinhaankur
+/lib/audit.ts            @tejaswirajgit  @sinhaankur
+/prisma/                 @tejaswirajgit  @sinhaankur
+/app/api/                @tejaswirajgit  @sinhaankur
+/app/auth/               @tejaswirajgit  @sinhaankur
+/utils/supabase/         @tejaswirajgit  @sinhaankur
+/.env.example            @tejaswirajgit  @sinhaankur
