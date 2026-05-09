@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, isStripeEnabled } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { logAuditFireAndForget } from "@/lib/audit";
 
@@ -16,6 +16,16 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  if (!isStripeEnabled()) {
+    // 410 Gone — the webhook is intentionally disabled while compliance
+    // review is pending. Stripe won't be sending us anything anyway since
+    // the merchant account isn't live, but reject defensively.
+    return NextResponse.json(
+      { error: "Webhook is disabled while compliance review is pending." },
+      { status: 410 },
+    );
+  }
+
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!secret) {
     console.error("[stripe/webhook] STRIPE_WEBHOOK_SECRET is not set");

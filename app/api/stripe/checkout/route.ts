@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getStripe, getAppBaseUrl } from "@/lib/stripe";
+import { getStripe, getAppBaseUrl, isStripeEnabled } from "@/lib/stripe";
 import { logAuditFireAndForget } from "@/lib/audit";
 
 // Creates a Stripe Checkout Session for one month's rent. Server-side
@@ -14,6 +14,13 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
+    if (!isStripeEnabled()) {
+      return NextResponse.json(
+        { error: "Online rent payments are pending compliance approval and not yet available." },
+        { status: 503 },
+      );
+    }
+
     const { authUser, appUser } = await requireUser();
 
     if (appUser.role !== "tenant") {

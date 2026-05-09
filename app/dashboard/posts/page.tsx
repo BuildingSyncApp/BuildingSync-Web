@@ -31,7 +31,7 @@ export default async function PostsPage() {
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">Posts</h1>
         <Link
-          href="/dashboard/create"
+          href="/dashboard/posts/new"
           className="text-sm text-accent hover:underline flex items-center gap-1"
         >
           New post

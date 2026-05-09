@@ -16,3 +16,11 @@ export function getStripe(): Stripe {
 export function getAppBaseUrl(): string {
   return process.env.APP_BASE_URL || "http://localhost:3000";
 }
+
+// Master kill-switch for the rent-payment flow. Stripe merchant
+// onboarding is pending compliance review; until it's approved we
+// surface a "pending compliance" notice instead of the Pay button and
+// reject the API routes. Flip to "1" once Stripe approves.
+export function isStripeEnabled(): boolean {
+  return process.env.STRIPE_ENABLED === "1";
+}

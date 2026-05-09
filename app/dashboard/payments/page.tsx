@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatDateShort, formatRelative } from "@/lib/format";
+import { isStripeEnabled } from "@/lib/stripe";
 import { PayNowButton } from "./PayNowButton";
 
 // Rent payment landing page. Shows the active lease's monthly rent plus
@@ -31,6 +32,7 @@ export default async function PaymentsPage() {
   // Tenants only — residents who own their unit don't pay rent here.
   if (appUser.role !== "tenant") redirect("/dashboard");
 
+  const stripeEnabled = isStripeEnabled();
   const now = new Date();
 
   const [activeLease, history] = await Promise.all([
@@ -65,6 +67,34 @@ export default async function PaymentsPage() {
       </Link>
       <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Pay rent</h1>
 
+      {!stripeEnabled && (
+        <div
+          className="mt-6 bg-amber-500/10 border border-amber-500/30 rounded-xl p-5"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="flex items-start gap-3">
+            <span className="w-9 h-9 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+            </span>
+            <div className="min-w-0">
+              <p className="font-semibold text-amber-900 dark:text-amber-200">
+                Online rent payments are pending compliance approval
+              </p>
+              <p className="mt-1 text-sm text-amber-900/85 dark:text-amber-200/85 leading-relaxed">
+                Our payment processor is still reviewing the application. You can&apos;t pay rent
+                online here yet — please continue paying through your existing arrangement with
+                your landlord. We&apos;ll email you the moment online payments are live.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {!activeLease ? (
         <div className="mt-6 bg-card border border-border rounded-xl p-6">
           <p className="text-sm text-muted-foreground leading-relaxed">
@@ -87,11 +117,26 @@ export default async function PaymentsPage() {
               Lease through {formatDateShort(activeLease.leaseEndDate)}
             </p>
           </div>
-          <PayNowButton leaseId={activeLease.id} amount={activeLease.rentAmountMonthly} />
-          <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
-            Stripe processing fees on rent are absorbed by the property manager — never charged to you
-            (Ontario RTA s. 134). Your card data is handled directly by Stripe; BuildingSync never sees it.
-          </p>
+          {stripeEnabled ? (
+            <>
+              <PayNowButton leaseId={activeLease.id} amount={activeLease.rentAmountMonthly} />
+              <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
+                Stripe processing fees on rent are absorbed by the property manager — never charged to
+                you (Ontario RTA s. 134). Your card data is handled directly by Stripe; BuildingSync
+                never sees it.
+              </p>
+            </>
+          ) : (
+            <button
+              type="button"
+              disabled
+              aria-disabled="true"
+              className="mt-4 w-full sm:w-auto px-5 py-2.5 rounded-md bg-muted text-muted-foreground font-semibold cursor-not-allowed"
+              title="Online rent payments are pending compliance approval"
+            >
+              Pay rent · pending compliance
+            </button>
+          )}
         </section>
       )}
 

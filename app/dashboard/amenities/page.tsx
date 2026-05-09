@@ -13,9 +13,15 @@ function formatTimeRange(start: Date, end: Date | null): string {
   return `${fmtDate.format(start)} · ${fmtTime.format(start)} – ${fmtTime.format(end)}`;
 }
 
-export default async function AmenitiesPage() {
+export default async function AmenitiesPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ booked?: string }>;
+}) {
   const { appUser } = await requireUser();
   const now = new Date();
+  const params = (await searchParams) || {};
+  const justBooked = params.booked === "1";
 
   const [amenities, myBookings] = appUser.buildingId
     ? await Promise.all([
@@ -49,6 +55,12 @@ export default async function AmenitiesPage() {
         Back
       </Link>
       <h1 className="text-2xl font-semibold tracking-tight">Amenity Reservations</h1>
+
+      {justBooked && (
+        <div className="mt-4 bg-emerald-500/10 border border-emerald-500/30 rounded-md px-4 py-3 text-sm text-emerald-800 dark:text-emerald-300" role="status">
+          Booking submitted. Check &quot;Your upcoming bookings&quot; below for status.
+        </div>
+      )}
 
       {myBookings.length > 0 && (
         <section className="mt-6">
@@ -107,9 +119,17 @@ export default async function AmenitiesPage() {
                     ))}
                   </ul>
                 )}
-                <div className="mt-4 text-xs text-muted-foreground">
-                  Booking flow ships next iteration. Approval policy:{" "}
-                  <span className="text-foreground">{a.approvalPolicy.replace("_", " ")}</span>.
+                <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
+                  <span className="text-xs text-muted-foreground">
+                    Approval:{" "}
+                    <span className="text-foreground">{a.approvalPolicy.replace("_", " ")}</span>
+                  </span>
+                  <Link
+                    href={`/dashboard/amenities/${a.id}/book`}
+                    className="px-4 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors"
+                  >
+                    Reserve
+                  </Link>
                 </div>
               </li>
             ))}

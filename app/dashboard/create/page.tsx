@@ -38,7 +38,7 @@ export default async function CreatePage() {
       icon: <ActionIcon d="M2 12h20 M12 12V2 M5 12a7 7 0 0 1 14 0" />,
     },
     {
-      href: "/dashboard/posts",
+      href: "/dashboard/posts/new",
       label: "Community post",
       hint: "Share with your neighbours",
       icon: <ActionIcon d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />,
