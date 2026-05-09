@@ -4,6 +4,7 @@ import { getOrCreateAppUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmailFireAndForget, workOrderStatusChangedEmail } from "@/lib/email";
 import { logAuditFireAndForget } from "@/lib/audit";
+import { sendPushToUser } from "@/lib/push";
 
 // Live-DB enum: open → in_progress → scheduled → completed → closed.
 // We only expose the linear flow (open → in_progress → closed) for R1.
@@ -50,22 +51,36 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     },
   });
 
-  // Email the opener if status actually changed.
+  // Notify the opener if status actually changed (email + push).
   if (data.status && data.status !== wo.status && wo.openedById) {
+    const openerId = wo.openedById;
     const [opener, building] = await Promise.all([
-      prisma.user.findUnique({ where: { id: wo.openedById }, select: { email: true, isActive: true } }),
+      prisma.user.findUnique({
+        where: { id: openerId },
+        select: { email: true, isActive: true, notifyEmail: true },
+      }),
       prisma.building.findUnique({ where: { id: wo.buildingId }, select: { name: true } }),
     ]);
     if (opener?.isActive && opener.email) {
-      sendEmailFireAndForget({
-        to: opener.email,
-        ...workOrderStatusChangedEmail({
-          title: updated.issue,
-          oldStatus: wo.status,
-          newStatus: data.status,
-          buildingName: building?.name ?? null,
-        }),
-      });
+      if (opener.notifyEmail) {
+        sendEmailFireAndForget({
+          to: opener.email,
+          ...workOrderStatusChangedEmail({
+            title: updated.issue,
+            oldStatus: wo.status,
+            newStatus: data.status,
+            buildingName: building?.name ?? null,
+          }),
+        });
+      }
+      void sendPushToUser(openerId, {
+        title: building?.name
+          ? `${building.name}: maintenance update`
+          : "Maintenance update",
+        body: `${updated.issue} → ${data.status.replace("_", " ")}`,
+        url: "/dashboard/maintenance",
+        tag: `workorder-${updated.id}`,
+      }).catch((err) => console.error("[work-orders/[id]] push failed", err));
     }
   }
 

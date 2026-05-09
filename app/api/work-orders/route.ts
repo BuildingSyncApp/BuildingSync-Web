@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getOrCreateAppUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmailFireAndForget, workOrderCreatedEmail } from "@/lib/email";
+import { sendPushToUsers } from "@/lib/push";
 
 const CreateBody = z.object({
   title: z.string().trim().min(1).max(200),
@@ -82,22 +83,39 @@ export async function POST(request: NextRequest) {
         role: { in: ["facility_manager", "building_manager"] },
         isActive: true,
       },
-      select: { email: true },
+      select: { id: true, email: true, notifyEmail: true },
     }),
     prisma.building.findUnique({ where: { id: appUser.buildingId }, select: { name: true } }),
   ]);
   if (recipients.length > 0) {
-    sendEmailFireAndForget({
-      to: recipients.map((r) => r.email),
-      ...workOrderCreatedEmail({
-        title: workOrder.issue,
-        description: workOrder.description ?? "",
-        openedByLabel: appUser.name || appUser.email,
-        unitLabel: workOrder.unit === "—" ? null : workOrder.unit,
-        buildingName: building?.name ?? null,
-        workOrderId: workOrder.id,
-      }),
-    });
+    const emails = recipients.filter((r) => r.notifyEmail).map((r) => r.email);
+    if (emails.length > 0) {
+      sendEmailFireAndForget({
+        to: emails,
+        ...workOrderCreatedEmail({
+          title: workOrder.issue,
+          description: workOrder.description ?? "",
+          openedByLabel: appUser.name || appUser.email,
+          unitLabel: workOrder.unit === "—" ? null : workOrder.unit,
+          buildingName: building?.name ?? null,
+          workOrderId: workOrder.id,
+        }),
+      });
+    }
+
+    void sendPushToUsers(
+      recipients.map((r) => r.id),
+      {
+        title: building?.name
+          ? `${building.name}: new work order`
+          : "New work order",
+        body: workOrder.unit === "—"
+          ? workOrder.issue
+          : `Unit ${workOrder.unit} · ${workOrder.issue}`,
+        url: "/team/work-orders",
+        tag: `workorder-new-${workOrder.id}`,
+      },
+    ).catch((err) => console.error("[work-orders] push failed", err));
   }
 
   return NextResponse.json({ workOrder }, { status: 201 });

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
 import { logAuditFireAndForget } from "@/lib/audit";
+import { sendPushToUsers } from "@/lib/push";
 
 // All team roles can report incidents (concierge is the most common
 // reporter — front desk sees things first). BM/FM also report and resolve.
@@ -70,6 +71,36 @@ export async function reportIncident(_prev: unknown, formData: FormData): Promis
       location: data.location,
     },
   });
+
+  // Push BM + FM (excluding the reporter themselves). Severity drives
+  // the title prefix so urgent incidents are visually distinct.
+  const escalationTargets = await prisma.user
+    .findMany({
+      where: {
+        buildingId: session.appUser.buildingId,
+        role: { in: ["building_manager", "facility_manager"] },
+        isActive: true,
+        id: { not: session.appUser.id },
+      },
+      select: { id: true },
+    })
+    .catch(() => []);
+  if (escalationTargets.length > 0) {
+    const sevPrefix = data.severity === "urgent"
+      ? "Urgent incident"
+      : data.severity === "high"
+        ? "High-severity incident"
+        : "Incident reported";
+    void sendPushToUsers(
+      escalationTargets.map((u) => u.id),
+      {
+        title: sevPrefix,
+        body: data.location ? `${data.title} · ${data.location}` : data.title,
+        url: "/team/incidents",
+        tag: `incident-${incident.id}`,
+      },
+    ).catch((err) => console.error("[incidents] push failed", err));
+  }
 
   revalidatePath("/team/incidents");
   revalidatePath("/team");
