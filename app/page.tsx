@@ -12,13 +12,13 @@ import { ProductHighlights } from "@/components/ProductHighlights";
 const ADMIN_HOST = process.env.ADMIN_HOST || "admin.buildingsync.app";
 
 export const metadata: Metadata = {
-  title: "BuildingSync — Run your building from one place",
+  title: "BuildingSync — AI-native operations for property management",
   description:
-    "Property management platform for maintenance, residents, vendors, and communications. Built for property teams who want to spend less time on admin. Essential plan from $2.50 / unit / month.",
+    "AI-native operations layer for property managers — incident management, communications, maintenance, and resident workflows in one place. Built to optimize day-to-day for BM, FM, and concierge teams. Essential plan from $2.50 / unit / month.",
   openGraph: {
-    title: "BuildingSync — Run your building from one place",
+    title: "BuildingSync — AI-native operations for property management",
     description:
-      "Property management platform for maintenance, residents, vendors, and communications. Self-serve onboarding, cancel anytime, privacy-first.",
+      "Incident management, communications, maintenance, and resident workflows. AI-native, mobile-first, privacy-first. Self-serve onboarding, cancel anytime.",
     type: "website",
     siteName: "BuildingSync",
   },
@@ -142,11 +142,11 @@ function Hero({ portalUrl, portalLabel }: { portalUrl: string | null; portalLabe
           fontSize: "clamp(2.5rem, 5vw, 4rem)",
         }}
       >
-        Run your building from one place.
+        The AI-native ops layer for buildings.
       </h1>
 
       <p className="mt-5 md:mt-6 text-base md:text-lg text-muted-foreground max-w-160 leading-relaxed">
-        Maintenance, residents, communications, and team execution. Built for property teams who want to spend less time on admin and more time on residents.
+        Incident management, communications, maintenance, and resident workflows in one place. Built to optimize the day-to-day for Building Managers, Facility Managers, and Concierge teams — not to replace them.
       </p>
 
       <div className="mt-6 flex flex-wrap gap-2">
@@ -246,24 +246,34 @@ function Pathways() {
 const PRINCIPLES = [
   {
     number: "01",
-    title: "Operational Excellence",
-    summary: "Reduce reactive work with clear maintenance and team workflows.",
-    points: ["Open / assigned / closed lifecycle", "Email notifications on every state change"],
+    title: "AI-native, human-led",
+    summary: "Built so AI assists the people running buildings — never replaces their judgement.",
+    points: [
+      "Structured data on every interaction so AI can summarise + recommend",
+      "Audit-grade event log over every comms channel",
+      "AI assist (drafts, triage, summarisation) lands progressively from R2",
+    ],
   },
   {
     number: "02",
-    title: "Security and Privacy",
-    summary: "Protect people, assets, and data with row-level isolation and Supabase auth.",
-    points: ["Per-building data isolation by buildingId", "Encrypted storage, audited auth flows"],
+    title: "Operational Excellence",
+    summary: "Reduce reactive work with clear maintenance, incident, and comms workflows.",
+    points: ["Incident triage with severity + escalation", "Open / assigned / closed work-order lifecycle", "Push + email on every state change"],
   },
   {
     number: "03",
+    title: "Security and Privacy",
+    summary: "Protect people, assets, and data with row-level isolation and Supabase auth.",
+    points: ["Per-building data isolation by buildingId", "Encrypted storage, audited auth flows", "Downloadable comms logs for LTB / RTA disputes"],
+  },
+  {
+    number: "04",
     title: "Self-serve & Honest",
     summary: "No salesperson in the loop. No long-term contract.",
     points: ["Sign up, onboard a building, invite residents — under an hour", "Cancel anytime, export your data"],
   },
   {
-    number: "04",
+    number: "05",
     title: "Mobile-first",
     summary: "Installable PWA today; native iOS and Android ship at R3.",
     points: ["Install from Safari or Chrome to home screen", "Push notifications, offline shell, brand-mark home tile", "Everything before R3 is MVP — features may evolve as customers shape it"],
@@ -463,6 +473,14 @@ const FAQS = [
   {
     q: "What does \"MVP\" mean here?",
     a: "BuildingSync is in MVP through R1 and R2. The core flows (announcements, maintenance, deliveries, push notifications, audit log, settings) are live and used in real buildings, but copy, layouts, and secondary features may evolve as we learn from pilot customers. Native iOS + Android apps land at R3 alongside the production billing portal. Pricing locks at R3.",
+  },
+  {
+    q: "What does \"AI-native\" actually mean here?",
+    a: "Every interaction in BuildingSync — announcements, work-order notes, incident reports, deliveries, audit events — is captured as structured data with stable schemas, not free-text email threads. That makes the data first-class for AI-assisted triage, summarisation, and recommendations as those features land progressively from R2. The AI doesn't replace your BM, FM, or concierge — it cuts the time they spend on repetitive admin so they can spend more on residents.",
+  },
+  {
+    q: "Can I download communications for an LTB / RTA dispute?",
+    a: "Yes. From /team/audit-log, the Building Manager can export a CSV of every announcement, work-order note, incident, and audit event in any 30 / 90 / 365-day window. Each row includes timestamp, channel, actor, audience, subject, body, and a stable reference id — usable as evidence in landlord-tenant disputes or for internal review.",
   },
   {
     q: "Is my building's data shared with other customers?",
