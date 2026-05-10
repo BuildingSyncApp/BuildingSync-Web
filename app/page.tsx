@@ -12,13 +12,13 @@ import { ProductHighlights } from "@/components/ProductHighlights";
 const ADMIN_HOST = process.env.ADMIN_HOST || "admin.buildingsync.app";
 
 export const metadata: Metadata = {
-  title: "BuildingSync — AI-native operations for property management",
+  title: "BuildingSync — The operations platform for residential buildings",
   description:
-    "AI-native operations layer for property managers — incident management, communications, maintenance, and resident workflows in one place. Built to optimize day-to-day for BM, FM, and concierge teams. Essential plan from $2.50 / unit / month.",
+    "Run your building from one place — incidents, maintenance, communications, deliveries, legal notices, and resident workflows. AI assist where it saves time. Built for Building Managers, Facility Managers, and Concierge teams. Essential plan from $2.50 / unit / month.",
   openGraph: {
-    title: "BuildingSync — AI-native operations for property management",
+    title: "BuildingSync — The operations platform for residential buildings",
     description:
-      "Incident management, communications, maintenance, and resident workflows. AI-native, mobile-first, privacy-first. Self-serve onboarding, cancel anytime.",
+      "Incidents, maintenance, communications, deliveries, and legal notices in one place. AI assist where it saves time. Self-serve onboarding, mobile-first, privacy-first.",
     type: "website",
     siteName: "BuildingSync",
   },
@@ -142,11 +142,11 @@ function Hero({ portalUrl, portalLabel }: { portalUrl: string | null; portalLabe
           fontSize: "clamp(2.5rem, 5vw, 4rem)",
         }}
       >
-        The AI-native ops layer for buildings.
+        Run your building from one place.
       </h1>
 
       <p className="mt-5 md:mt-6 text-base md:text-lg text-muted-foreground max-w-160 leading-relaxed">
-        Incident management, communications, maintenance, and resident workflows in one place. Built to optimize the day-to-day for Building Managers, Facility Managers, and Concierge teams — not to replace them.
+        Incidents, maintenance, communications, deliveries, and legal notices for Building Managers, Facility Managers, and Concierge teams. AI assist where it saves time — never as a replacement for your judgement.
       </p>
 
       <div className="mt-6 flex flex-wrap gap-2">
@@ -246,19 +246,23 @@ function Pathways() {
 const PRINCIPLES = [
   {
     number: "01",
-    title: "AI-native, human-led",
-    summary: "Built so AI assists the people running buildings — never replaces their judgement.",
+    title: "Operational Excellence",
+    summary: "Reduce reactive work with clear maintenance, incident, and comms workflows.",
     points: [
-      "Structured data on every interaction so AI can summarise + recommend",
-      "Audit-grade event log over every comms channel",
-      "AI assist (drafts, triage, summarisation) lands progressively from R2",
+      "Incident triage with severity + escalation",
+      "Open / assigned / closed work-order lifecycle",
+      "Push + email on every state change",
     ],
   },
   {
     number: "02",
-    title: "Operational Excellence",
-    summary: "Reduce reactive work with clear maintenance, incident, and comms workflows.",
-    points: ["Incident triage with severity + escalation", "Open / assigned / closed work-order lifecycle", "Push + email on every state change"],
+    title: "AI assist where it saves time",
+    summary: "AI is wired in at points that genuinely cut admin — drafting, summarisation, triage. Never as a replacement for your judgement.",
+    points: [
+      "Today: AI-drafted announcements + work-order queue triage",
+      "Foundation: structured data + audit-grade event log over every channel",
+      "More AI surfaces (chat, semantic search, agent flows) ship progressively from R2",
+    ],
   },
   {
     number: "03",
@@ -475,8 +479,8 @@ const FAQS = [
     a: "BuildingSync is in MVP through R1 and R2. The core flows (announcements, maintenance, deliveries, push notifications, audit log, settings) are live and used in real buildings, but copy, layouts, and secondary features may evolve as we learn from pilot customers. Native iOS + Android apps land at R3 alongside the production billing portal. Pricing locks at R3.",
   },
   {
-    q: "What does \"AI-native\" actually mean here?",
-    a: "Every interaction in BuildingSync — announcements, work-order notes, incident reports, deliveries, audit events — is captured as structured data with stable schemas, not free-text email threads. That makes the data first-class for AI-assisted triage, summarisation, and recommendations as those features land progressively from R2. The AI doesn't replace your BM, FM, or concierge — it cuts the time they spend on repetitive admin so they can spend more on residents.",
+    q: "How much AI is actually in BuildingSync today?",
+    a: "Two AI features ship today: AI-drafted announcements (BM types a one-line brief, Claude returns a polished draft to edit) and AI work-order triage (one-line scan of the open queue with prioritised recommendations). Both are powered by Claude (Anthropic) and clearly labelled in the UI. The bigger AI surfaces — a chat assistant, semantic search across history, agent flows for compound tasks — are honest R2/R3 work, not what's running today. We build the data foundation right (structured schemas, audit-grade event log) so those land cleanly when they ship. We'd rather under-promise and over-deliver than the other way around.",
   },
   {
     q: "Can I download communications for an LTB / RTA dispute?",
