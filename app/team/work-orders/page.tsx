@@ -38,7 +38,7 @@ export default async function TeamWorkOrdersPage() {
         <h1 className="text-3xl font-semibold tracking-tight">Work orders</h1>
         {!canAct && (
           <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm border border-border bg-muted/30 text-muted-foreground">
-            View only
+            Notes only
           </span>
         )}
       </div>

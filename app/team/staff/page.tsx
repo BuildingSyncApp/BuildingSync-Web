@@ -6,6 +6,7 @@ import { Avatar } from "@/components/Avatar";
 import { StatusPill } from "@/components/StatusPill";
 import { roleLabel } from "@/components/RoleBadge";
 import { AddStaffForm } from "./AddStaffForm";
+import { StaffRowActions } from "./StaffRowActions";
 
 const STAFF_ROLES = ["facility_manager", "concierge"] as const;
 
@@ -87,6 +88,12 @@ export default async function TeamStaffPage() {
                     <StatusPill
                       label={roleLabel(s.role)}
                       tone={s.role === "facility_manager" ? "blue" : "violet"}
+                    />
+                    <StaffRowActions
+                      userId={s.id}
+                      email={s.email}
+                      name={s.name}
+                      role={s.role as "facility_manager" | "concierge"}
                     />
                   </div>
                 </li>

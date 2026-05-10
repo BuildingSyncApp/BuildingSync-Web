@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { formatRelative } from "@/lib/format";
 import { StatusPill, workOrderTone } from "@/components/StatusPill";
 import { MaintenanceForm } from "./MaintenanceForm";
+import { ResidentWorkOrderUpdates } from "./ResidentWorkOrderUpdates";
 
 export default async function MaintenancePage() {
   const { appUser } = await requireUser();
@@ -13,6 +14,13 @@ export default async function MaintenancePage() {
     where: { openedById: appUser.id },
     orderBy: { createdAt: "desc" },
     take: 20,
+    include: {
+      assignee: { select: { name: true, email: true, role: true } },
+      notes: {
+        orderBy: { createdAt: "desc" },
+        include: { author: { select: { name: true, email: true, role: true } } },
+      },
+    },
   });
 
   return (
@@ -37,18 +45,34 @@ export default async function MaintenancePage() {
           </div>
         ) : (
           <ul className="mt-3 space-y-2">
-            {workOrders.map((wo) => (
-              <li key={wo.id} className="bg-card border border-border rounded-md p-4">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span className="font-medium">{wo.issue}</span>
-                  <StatusPill label={wo.status.replace("_", " ")} tone={workOrderTone(wo.status)} />
-                </div>
-                {wo.description && <p className="mt-2 text-sm text-muted-foreground">{wo.description}</p>}
-                <p className="mt-3 text-xs text-muted-foreground/85">
-                  Opened {formatRelative(wo.createdAt)}
-                </p>
-              </li>
-            ))}
+            {workOrders.map((wo) => {
+              const assigneeLabel = wo.assignee
+                ? wo.assignee.name || wo.assignee.email
+                : null;
+              return (
+                <li key={wo.id} className="bg-card border border-border rounded-md p-4">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="font-medium">{wo.issue}</span>
+                    <StatusPill label={wo.status.replace("_", " ")} tone={workOrderTone(wo.status)} />
+                  </div>
+                  {wo.description && <p className="mt-2 text-sm text-muted-foreground">{wo.description}</p>}
+                  <p className="mt-3 text-xs text-muted-foreground/85">
+                    Opened {formatRelative(wo.createdAt)}
+                    {assigneeLabel ? ` · Assigned to ${assigneeLabel}` : ""}
+                  </p>
+                  <ResidentWorkOrderUpdates
+                    notes={wo.notes.map((n) => ({
+                      id: n.id,
+                      body: n.body,
+                      createdAt: n.createdAt.toISOString(),
+                      authorName: n.author?.name ?? null,
+                      authorEmail: n.author?.email ?? "",
+                      authorRole: n.author?.role ?? null,
+                    }))}
+                  />
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
