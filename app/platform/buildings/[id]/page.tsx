@@ -46,12 +46,27 @@ export default async function BuildingDetail({ params }: { params: Promise<{ id:
         ]}
       />
 
-      <div className="mt-4 space-y-1">
+      <div className="mt-4 space-y-2">
         <p className="text-xs uppercase tracking-wider text-muted-foreground">Building</p>
         <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">{building.name}</h1>
         <p className="text-sm text-muted-foreground">
           {building.address}, {building.city}, {building.state} {building.zipCode} · {building.timezone}
         </p>
+        <div className="flex flex-wrap gap-2 pt-1">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest px-2 py-1 rounded-full border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 bg-emerald-500/10">
+            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="2" y1="12" x2="22" y2="12" />
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+            </svg>
+            Data: Canada
+          </span>
+          {building.inviteCode && (
+            <span className="inline-flex items-center text-[10px] font-mono uppercase tracking-widest px-2 py-1 rounded-full border border-accent/40 text-accent bg-accent/10">
+              Invite code · {building.inviteCode}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-3">

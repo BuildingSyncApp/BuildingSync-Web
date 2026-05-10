@@ -26,10 +26,17 @@ export const metadata: Metadata = {
 
 type SP = Promise<{ go?: string; source?: string }>;
 
+// Vercel-injected geo header. Falls back to Cloudflare's header for
+// other hosts. Null in dev or behind a proxy that strips it.
+function readVisitorCountry(h: Headers): string | null {
+  return h.get("x-vercel-ip-country") || h.get("cf-ipcountry") || null;
+}
+
 export default async function Home({ searchParams }: { searchParams: SP }) {
   const h = await headers();
   const host = h.get("host") || "";
   const isAdminHost = host === ADMIN_HOST || host.startsWith("admin.");
+  const visitorCountry = readVisitorCountry(h);
 
   const supabase = await createClient(await cookies());
   const { data: { user } } = await supabase.auth.getUser();
@@ -79,7 +86,7 @@ export default async function Home({ searchParams }: { searchParams: SP }) {
     <>
       <SiteHeader />
       <main>
-        <Hero portalUrl={portalUrl} portalLabel={portalLabel} />
+        <Hero portalUrl={portalUrl} portalLabel={portalLabel} visitorCountry={visitorCountry} />
         <Pathways />
         <ProductHighlights />
         <Principles />
@@ -123,7 +130,40 @@ function SiteHeader() {
   );
 }
 
-function Hero({ portalUrl, portalLabel }: { portalUrl: string | null; portalLabel: string }) {
+// Geo-adapted "where we're built" line. Same parent message ("Built in
+// Canada, AI-optimized startup, dev centre in India") with a suffix
+// that speaks to the visitor's likely concern.
+function builtInCopy(country: string | null): string {
+  switch (country) {
+    case "CA":
+      return "Built in Canada · Your tenant data stays here";
+    case "US":
+      return "Built in Canada · Canadian privacy rules included";
+    case "FR":
+    case "DE":
+    case "NL":
+    case "GB":
+    case "IE":
+      return "Built in Canada · GDPR + PIPEDA aligned";
+    case "IN":
+      return "Built in Canada · Engineered with our Bengaluru team";
+    case "AE":
+    case "SA":
+      return "Built in Canada · Custom data residency available";
+    default:
+      return "Built in Canada · AI-optimized startup, dev centre in India";
+  }
+}
+
+function Hero({
+  portalUrl,
+  portalLabel,
+  visitorCountry,
+}: {
+  portalUrl: string | null;
+  portalLabel: string;
+  visitorCountry: string | null;
+}) {
   return (
     <section className="relative max-w-7xl mx-auto px-6 pt-12 md:pt-20 pb-16 md:pb-24">
       <SplitFlapAudioProvider>
@@ -153,7 +193,15 @@ function Hero({ portalUrl, portalLabel }: { portalUrl: string | null; portalLabe
         <span className="inline-flex items-center px-3 py-1.5 rounded-full border border-accent/40 bg-accent/10 text-xs font-mono uppercase tracking-widest text-accent">
           Pilot · 5 buildings · 90 days free
         </span>
-        {["Self-serve onboarding", "Cancel anytime", "Privacy-first by design"].map((proof) => (
+        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-xs text-emerald-700 dark:text-emerald-400">
+          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="2" y1="12" x2="22" y2="12" />
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+          </svg>
+          {builtInCopy(visitorCountry)}
+        </span>
+        {["Self-serve onboarding", "Cancel anytime"].map((proof) => (
           <span
             key={proof}
             className="inline-flex items-center px-3 py-1.5 rounded-full border border-border bg-card text-xs text-muted-foreground"
@@ -372,17 +420,39 @@ const TIERS = [
     name: "Enterprise",
     price: "Custom",
     period: "",
-    description: "For large-scale portfolios.",
+    description: "For REITs, large condo corps, multi-property operators.",
     features: [
       "All Professional features",
-      "Custom API integrations",
-      "Dedicated account manager",
-      "SSO / SAML",
-      "Tailored onboarding & training",
-      "Custom data residency",
+      "Dedicated tenant deployment (your own Supabase + Vercel)",
+      "Canadian or custom data residency",
+      "Single sign-on (SSO / SAML / OIDC)",
+      "Custom API integrations + webhooks",
+      "Dedicated customer success + named account manager",
+      "Tailored onboarding, training, change management",
+      "SOC 2 Type II + ISO 27001 (on roadmap)",
     ],
-    cta: "Contact us",
-    href: "mailto:info@buildingsync.app",
+    cta: "Contact sales",
+    href: "/enterprise",
+    highlight: false,
+    available: true,
+  },
+  {
+    name: "Government",
+    price: "Custom",
+    period: "",
+    description: "For municipal, provincial, federal, and Crown housing.",
+    features: [
+      "All Enterprise features",
+      "Canadian-only data residency (ca-central, Toronto)",
+      "AODA + WCAG 2.1 AA accessibility commitment",
+      "Bilingual UI (English + French) — required for federal",
+      "PIPEDA + Loi 25 + ITSG-33 alignment",
+      "Procurement-friendly (RFI / RFP / SOW supported)",
+      "Background-cleared support staff (CCCS posture)",
+      "VPAT + accessibility audit on request",
+    ],
+    cta: "Talk to gov sales",
+    href: "/enterprise?gov=1",
     highlight: false,
     available: true,
   },
@@ -426,7 +496,7 @@ function Pricing() {
         </div>
       </div>
 
-      <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {TIERS.map((t) => (
           <div
             key={t.name}

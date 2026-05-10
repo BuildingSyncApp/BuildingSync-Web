@@ -85,6 +85,13 @@ export default function AboutPage() {
               soft-delete. We never sell or aggregate tenant data.
             </li>
             <li>
+              <strong className="text-foreground">Your tenant data belongs in Canada.</strong>{" "}
+              New buildings default to Canadian residency. We&apos;re completing the migration to
+              Supabase ca-central-1 (Toronto) by R2. Custom regions and dedicated tenancy are
+              available on{" "}
+              <Link href="/enterprise" className="text-accent hover:underline">Enterprise</Link>.
+            </li>
+            <li>
               <strong className="text-foreground">Honesty in the marketing.</strong>{" "}
               Our pricing page lists what&apos;s live and what&apos;s roadmap, in plain English. No
               dark-pattern tiers, no contract lock-in, no &quot;contact sales&quot; gates on basic features.
@@ -109,12 +116,19 @@ export default function AboutPage() {
             <a href="https://www.linkedin.com/company/node2-io/" target="_blank" rel="noopener" className="text-accent hover:underline">
               Node2.io
             </a>
-            . Our HQ is in Canada with a development centre in India. We are funded out of pocket
-            with a focus on building real customer relationships rather than chasing growth metrics.
+            . Our HQ is in Canada with a development centre in Bengaluru, India. Funded out of
+            pocket with a focus on real customer relationships over growth-at-all-costs metrics.
           </p>
           <p className="mt-3 text-sm leading-relaxed">
-            We&apos;re small enough that the founder still answers support emails, and we plan to keep
-            it that way until we have a reason not to.
+            We&apos;re an AI-optimized startup — meaning we use AI tooling internally to ship
+            faster than a team of our size historically could. That same discipline is reflected in
+            the product: every interaction is captured as structured data so future AI features
+            (chat assistant, semantic search, agent flows) can be added cleanly when customers
+            actually pull for them.
+          </p>
+          <p className="mt-3 text-sm leading-relaxed">
+            We&apos;re small enough that the founder still answers support emails, and we plan to
+            keep it that way until we have a reason not to.
           </p>
         </section>
 

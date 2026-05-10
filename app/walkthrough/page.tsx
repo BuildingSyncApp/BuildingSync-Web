@@ -18,6 +18,7 @@ const TALKING_POINTS = [
   "How residents and tenants experience it — installable PWA, push notifications, deliveries, amenity bookings.",
   "Where AI assist actually saves you time today — announcement drafting and queue triage.",
   "Compliance: how we handle PIPEDA, LTB / RTA evidence, audit-grade event logs, and downloadable comms.",
+  "Data residency — your tenant data stays in Canada (ca-central, Toronto). Custom regions for Enterprise.",
   "Pilot terms — 90 days free, white-glove setup, what happens after.",
 ];
 
