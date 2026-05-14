@@ -2,8 +2,15 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { LOCALES, type LocaleCode } from "@/lib/locale";
 import { setLocale } from "@/lib/locale-actions";
+
+// Locales whose UI strings are actually translated today. Anything else
+// stores the preference + flips <html lang>, but the visible chrome is
+// still English. Surfaced in the picker as a "preview" pill so users
+// don't think the switcher is broken when nothing visibly changes.
+const TRANSLATED: ReadonlySet<LocaleCode> = new Set(["en-CA", "en-IN", "en-AE"]);
 
 // Compact dropdown for choosing a locale. Designed to live inside the
 // AccountMenu panel as a single row, but the component is generic enough
@@ -25,9 +32,25 @@ export function LocaleSwitcher({
   function pick(code: LocaleCode) {
     setOpen(false);
     if (code === current) return;
+    const next = LOCALES.find((l) => l.code === code) ?? LOCALES[0];
     startTransition(async () => {
       const res = await setLocale(code);
-      if (res.ok) router.refresh();
+      if (!res.ok) {
+        toast.error("Couldn't save language preference");
+        return;
+      }
+      // Flip <html lang>/<dir> immediately so the change is visible
+      // before the server-driven refresh swaps the SSR copy.
+      document.documentElement.lang = code;
+      document.documentElement.dir = next.dir;
+      if (TRANSLATED.has(code)) {
+        toast.success(`Language set to ${next.label}`);
+      } else {
+        toast.success(`Saved · ${next.label}`, {
+          description: "Full UI translation ships in a future release; chrome stays in English for now.",
+        });
+      }
+      router.refresh();
     });
   }
 
@@ -83,6 +106,7 @@ export function LocaleSwitcher({
         <ul className="bg-muted/30 border-y border-border" role="menu">
           {LOCALES.map((l) => {
             const active = l.code === current;
+            const translated = TRANSLATED.has(l.code);
             return (
               <li key={l.code}>
                 <button
@@ -95,8 +119,15 @@ export function LocaleSwitcher({
                   role="menuitem"
                   dir={l.dir}
                 >
-                  <span>{l.label}</span>
-                  <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="truncate">{l.label}</span>
+                    {!translated && (
+                      <span className="shrink-0 text-[9px] font-mono uppercase tracking-widest px-1.5 py-0.5 rounded-sm border border-amber-500/40 text-amber-700 dark:text-amber-400 bg-amber-500/5">
+                        Preview
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground shrink-0">
                     {l.code}
                   </span>
                 </button>
@@ -127,6 +158,7 @@ function DropdownPanel({
     >
       {LOCALES.map((l) => {
         const active = l.code === current;
+        const translated = TRANSLATED.has(l.code);
         return (
           <li key={l.code}>
             <button
@@ -139,8 +171,15 @@ function DropdownPanel({
               role="menuitem"
               dir={l.dir}
             >
-              <span>{l.label}</span>
-              <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{l.code}</span>
+              <span className="flex items-center gap-2 min-w-0">
+                <span className="truncate">{l.label}</span>
+                {!translated && (
+                  <span className="shrink-0 text-[9px] font-mono uppercase tracking-widest px-1.5 py-0.5 rounded-sm border border-amber-500/40 text-amber-700 dark:text-amber-400 bg-amber-500/5">
+                    Preview
+                  </span>
+                )}
+              </span>
+              <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground shrink-0">{l.code}</span>
             </button>
           </li>
         );

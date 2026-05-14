@@ -112,20 +112,25 @@ export function AccessibilityMenu() {
         aria-label="Accessibility"
         className="relative w-9 h-9 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
       >
+        {/* Universal Access Symbol — person silhouette inside a ring.
+            Internationally recognized accessibility mark, scans clearly
+            at icon sizes where a stick-figure does not. */}
         <svg
-          className="w-4 h-4"
+          className="w-4.5 h-4.5"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          strokeWidth="1.75"
+          strokeWidth="1.6"
           strokeLinecap="round"
           strokeLinejoin="round"
           aria-hidden="true"
         >
-          <circle cx="12" cy="4" r="2" />
-          <path d="M19 13l-5-2v-3a2 2 0 0 0-4 0v3l-5 2" />
-          <path d="M9 22l3-8 3 8" />
-          <path d="M9 14h6" />
+          <circle cx="12" cy="12" r="9.5" />
+          <circle cx="12" cy="6.75" r="1.25" fill="currentColor" stroke="none" />
+          <path d="M7.25 10.75c1.5.75 3 1.1 4.75 1.1s3.25-.35 4.75-1.1" />
+          <path d="M12 11.85V15" />
+          <path d="M12 15l-2.25 3.5" />
+          <path d="M12 15l2.25 3.5" />
         </svg>
       </button>
 

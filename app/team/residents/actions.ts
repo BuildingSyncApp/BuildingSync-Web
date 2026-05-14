@@ -6,18 +6,25 @@ import { z } from "zod";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
-import { sendEmail, welcomeEmail } from "@/lib/email";
+import { sendEmail, sendEmailFireAndForget, welcomeEmail } from "@/lib/email";
 import { logAuditFireAndForget } from "@/lib/audit";
 
 // Server-side Supabase client with the SERVICE_ROLE key — required for
 // auth.admin.createUser. Never expose this client to the browser.
+// Returns null when the env var is missing so callers can surface a
+// clear error instead of the supabase-js constructor throwing inside
+// the server action (which surfaces as a generic 500 to the form).
 function adminSupabase() {
-  return createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } },
-  );
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createSupabaseClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
 }
+
+const MISSING_SERVICE_KEY_ERROR =
+  "Server is missing SUPABASE_SERVICE_ROLE_KEY. Add it in Vercel → Project → Settings → Environment Variables, then redeploy.";
 
 const Body = z.object({
   email: z.string().email().toLowerCase(),
@@ -87,6 +94,9 @@ export async function addResident(_prev: unknown, formData: FormData): Promise<R
   // Supabase's confirmation email; we send our own branded welcome via Resend.
   const password = generatePassword();
   const supabase = adminSupabase();
+  if (!supabase) {
+    return { ok: false, error: MISSING_SERVICE_KEY_ERROR };
+  }
   const { data, error } = await supabase.auth.admin.createUser({
     email,
     password,
@@ -116,14 +126,15 @@ export async function addResident(_prev: unknown, formData: FormData): Promise<R
     changes: { email, role, buildingId: session.appUser.buildingId, unitId },
   });
 
-  // Welcome email with temp password + sign-in link. Awaited so a delivery
-  // failure surfaces alongside the success card (BM/FM still has the
-  // password to share manually if email bounces).
+  // Welcome email with temp password + sign-in link. Fire-and-forget so
+  // a slow / failed Resend call never blocks the form — the BM still
+  // sees the temp password in the success card and can share it
+  // manually if email bounces (the response card has Copy buttons).
   const building = await prisma.building.findUnique({
     where: { id: session.appUser.buildingId },
     select: { name: true },
   });
-  await sendEmail({
+  sendEmailFireAndForget({
     to: email,
     ...welcomeEmail({ email, password, buildingName: building?.name ?? null, role }),
   });
@@ -327,6 +338,9 @@ export async function bulkAddResidents(_prev: unknown, formData: FormData): Prom
   const unitByNumber = new Map(units.map((u) => [u.unitNumber.toLowerCase(), u.id]));
 
   const supabase = adminSupabase();
+  if (!supabase) {
+    return { ok: false, error: MISSING_SERVICE_KEY_ERROR };
+  }
   const building = await prisma.building.findUnique({
     where: { id: session.appUser.buildingId },
     select: { name: true },

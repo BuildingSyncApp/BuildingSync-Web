@@ -7,6 +7,8 @@ import { ToastProvider } from "@/components/ToastProvider";
 import { MotionConfigProvider } from "@/components/MotionConfig";
 import { CookieBanner } from "@/components/CookieBanner";
 import { Analytics } from "@/components/Analytics";
+import { getLocale } from "@/lib/locale-server";
+import { localeMeta } from "@/lib/locale";
 import "./globals.css";
 
 const ibmPlexSans = IBM_Plex_Sans({
@@ -60,9 +62,11 @@ const themeBootstrap = `
 })();
 `;
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getLocale();
+  const meta = localeMeta(locale);
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} dir={meta.dir} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
       </head>
