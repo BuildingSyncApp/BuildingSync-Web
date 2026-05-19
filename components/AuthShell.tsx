@@ -70,6 +70,8 @@ export function AuthShell({
           <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
           {" · "}
           <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
+          {" · "}
+          <Link href="/legal" className="hover:text-foreground transition-colors">Legal &amp; compliance</Link>
         </p>
         {!isCanonicalBrand && brand.showPoweredBy && (
           <p className="mt-2 text-[10px] text-muted-foreground/70 font-mono">

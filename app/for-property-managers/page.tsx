@@ -115,6 +115,11 @@ export default function ForPropertyManagersPage() {
               <strong className="text-foreground">Ontario RTA notice templates.</strong> N4 / N5 / N12 prefilled with your tenant + lease info, served-date tracking, printable PDF. (Tribunal filings still need the official form from tribunalsontario.ca — we make the prep faster.)
             </li>
           </ul>
+          <p className="mt-6 text-sm">
+            <Link href="/legal" className="text-accent hover:underline font-medium">
+              Read the full legal &amp; compliance summary →
+            </Link>
+          </p>
         </section>
 
         {/* Pricing summary */}

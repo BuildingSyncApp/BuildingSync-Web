@@ -450,6 +450,11 @@ export default async function DashboardPage() {
                 <a href="mailto:info@buildingsync.app" className="text-accent hover:underline">info@buildingsync.app</a>.
               </p>
             )}
+            <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
+              <Link href="/docs" className="hover:text-foreground underline-offset-2 hover:underline">Help Centre</Link>
+              <Link href="/legal" className="hover:text-foreground underline-offset-2 hover:underline">Legal &amp; compliance</Link>
+              <Link href="/privacy" className="hover:text-foreground underline-offset-2 hover:underline">Privacy</Link>
+            </div>
           </section>
         </div>
       )}
