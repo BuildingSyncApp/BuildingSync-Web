@@ -44,6 +44,7 @@ export default async function TeamLayout({ children }: { children: React.ReactNo
     compliance.push({ href: "/team/legal", label: "Legal" });
     compliance.push({ href: "/team/access-requests", label: "Access" });
     compliance.push({ href: "/team/audit-log", label: "Audit log" });
+    compliance.push({ href: "/team/verification", label: "Verification" });
     compliance.push({ href: "/team/license", label: "License" });
   }
 

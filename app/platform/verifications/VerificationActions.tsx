@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { decideVerification } from "./actions";
@@ -47,7 +48,16 @@ export function VerificationActions({
   const pending = approvePending || rejectPending;
 
   return (
-    <div className="flex items-center gap-2 shrink-0">
+    <div className="flex items-center gap-2 shrink-0 flex-wrap">
+      {/* Detailed review opens a dedicated page with all financial
+          fields. Use this for proper reviews; the one-click approve
+          below is for obvious renewals where signup data is complete. */}
+      <Link
+        href={`/platform/verifications/${userId}/review`}
+        className="px-4 py-2 sm:px-3 sm:py-1.5 rounded-md text-sm font-medium border border-accent/40 bg-accent/5 text-accent hover:bg-accent/10 transition-colors"
+      >
+        Review in detail →
+      </Link>
       <form action={approveAction}>
         <input type="hidden" name="userId" value={userId} />
         <input type="hidden" name="decision" value="approve" />
@@ -62,10 +72,10 @@ export function VerificationActions({
         <button
           type="submit"
           disabled={pending || !company}
-          title={!company ? "BM hasn't provided a company name — ask them to update before approving." : undefined}
+          title={!company ? "BM hasn't provided a company name — ask them to update before approving." : "Quick-approve with current signup facts only. Use 'Review in detail' to capture financial-management facts."}
           className="px-4 py-2 sm:px-3 sm:py-1.5 rounded-md text-sm font-medium bg-accent text-accent-foreground hover:bg-accent/90 transition-colors disabled:opacity-60"
         >
-          {approvePending ? "Saving…" : company ? "Approve · 12mo" : "Need company info"}
+          {approvePending ? "Saving…" : company ? "Quick approve" : "Need company info"}
         </button>
       </form>
       <form ref={rejectFormRef} action={rejectAction}>

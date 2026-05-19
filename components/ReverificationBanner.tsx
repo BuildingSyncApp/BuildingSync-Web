@@ -117,8 +117,14 @@ Thanks.`,
               Request re-verification →
             </a>
             <Link
-              href="/legal"
+              href="/team/verification"
               className="inline-flex items-center px-3 py-1.5 rounded-md text-xs border border-border bg-card hover:bg-muted/40 transition-colors"
+            >
+              View verification history
+            </Link>
+            <Link
+              href="/legal"
+              className="inline-flex items-center px-3 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               Why this matters
             </Link>
