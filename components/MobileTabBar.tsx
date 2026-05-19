@@ -22,6 +22,12 @@ function Icon({ d }: { d: string }) {
   );
 }
 
+// Five-tab mobile pattern with center FAB for create flows.
+//   Home · Maintenance · (+) · Notices · Menu
+// Maintenance replaces the rarely-used Posts tab (community posts
+// is low-frequency; reporting a problem is the #1 resident task).
+// Notices is the activity stream: announcements + packages combined.
+// Contacts moved to /dashboard/menu (which is the catch-all).
 const TABS_LEFT: Tab[] = [
   {
     href: "/dashboard",
@@ -29,17 +35,17 @@ const TABS_LEFT: Tab[] = [
     icon: <Icon d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-5h-2v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />,
   },
   {
-    href: "/dashboard/posts",
-    label: "Posts",
-    icon: <Icon d="M12 19V5 M5 12l7-7 7 7" />,
+    href: "/dashboard/maintenance",
+    label: "Repairs",
+    icon: <Icon d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76Z" />,
   },
 ];
 
 const TABS_RIGHT: Tab[] = [
   {
-    href: "/dashboard/contacts",
-    label: "Contacts",
-    icon: <Icon d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0z M19 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75" />,
+    href: "/dashboard/announcements",
+    label: "Notices",
+    icon: <Icon d="M11 5L6 9H2v6h4l5 4V5z M19.07 4.93a10 10 0 0 1 0 14.14 M15.54 8.46a5 5 0 0 1 0 7.07" />,
   },
   {
     href: "/dashboard/menu",
