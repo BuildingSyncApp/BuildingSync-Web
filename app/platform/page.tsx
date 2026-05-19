@@ -141,7 +141,14 @@ export default async function PlatformDashboard() {
                         </div>
                       </div>
                     </div>
-                    <VerificationActions userId={u.id} email={u.email} />
+                    <VerificationActions
+                      userId={u.id}
+                      email={u.email}
+                      company={u.company}
+                      managerType={u.managerType}
+                      businessNumber={u.businessNumber}
+                      licenseNumber={u.licenseNumber}
+                    />
                   </li>
                 );
               })}

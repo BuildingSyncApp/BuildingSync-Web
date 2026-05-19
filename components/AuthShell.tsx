@@ -71,7 +71,9 @@ export function AuthShell({
           {" · "}
           <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
           {" · "}
-          <Link href="/legal" className="hover:text-foreground transition-colors">Legal &amp; compliance</Link>
+          <Link href="/legal" className="hover:text-foreground transition-colors">Legal</Link>
+          {" · "}
+          <Link href="/security" className="hover:text-foreground transition-colors">Security</Link>
         </p>
         {!isCanonicalBrand && brand.showPoweredBy && (
           <p className="mt-2 text-[10px] text-muted-foreground/70 font-mono">

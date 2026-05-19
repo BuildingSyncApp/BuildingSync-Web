@@ -160,6 +160,14 @@ model User {
   managerType     String?
   businessNumber  String?
   licenseNumber   String?
+  // Recurring verification cache. The authoritative history lives in
+  // ManagerVerification[]; these are denormalised for fast banner +
+  // requireTeam checks (avoids a join on every page load).
+  // - lastVerifiedAt — most recent successful admin review
+  // - nextVerificationDue — earliest of: lastVerifiedAt + 365 days,
+  //   licenseExpiresAt - 60 days, insuranceExpiresAt - 60 days
+  lastVerifiedAt        DateTime?
+  nextVerificationDue   DateTime?
   // Set when admin verifies a building_manager signup. Other roles are
   // auto-verified — gate only applies to BM. Null = pending review.
   verifiedAt      DateTime?
@@ -179,6 +187,8 @@ model User {
   documentsBy       Document[]       @relation("DocumentUploader")
   incidentsReported Incident[]       @relation("IncidentReporter")
   auditLogs         AuditLog[]       @relation("AuditActor")
+  verifications     ManagerVerification[] @relation("ManagerVerificationTarget")
+  verificationsRun  ManagerVerification[] @relation("ManagerVerificationReviewer")
   amenityBookings   AmenityBooking[]
   eventsCreated     Event[]          @relation("EventCreator")
   posts             Post[]           @relation("PostAuthor")
@@ -571,6 +581,63 @@ model Delivery {
 // Per-building enterprise license. SaaS customers get a row managed
 // by the platform; on-prem customers paste a signed key. Validation
 // + heartbeat live in lib/license.ts.
+// Recurring verification history for Building Managers. Authoritative
+// record of every admin review — initial verification at signup AND
+// subsequent annual / license-driven re-reviews.
+//
+// Why a separate model (not just User fields):
+//   • Audit trail — LTB / insurance / procurement reviewers need to
+//     see WHO verified WHAT WHEN. Single mutable User row can't tell
+//     that story.
+//   • Snapshots — captures company / license / insurance state AT
+//     the time of verification. If a BM later changes their company
+//     name, we can still prove what was verified.
+//   • Financial-management facts — RTA + CMSA require specific
+//     financial controls (trust accounts, fidelity bonds, E&O
+//     insurance). Captured here per-verification.
+model ManagerVerification {
+  id                  String   @id @default(cuid())
+  userId              String
+  reviewedById        String?
+  reviewedAt          DateTime @default(now())
+  // When the next re-verification is required. NULL = indefinite
+  // (rare; reserved for grandfathered accounts).
+  validUntil          DateTime?
+  // approved | rejected | expired | pending_renewal
+  status              String   @default("approved")
+  notes               String?
+  // Optional link to evidence stored in object storage (e.g. signed
+  // articles of incorporation, CMRAO certificate scan).
+  evidenceUrl         String?
+
+  // Company snapshot at time of verification
+  companyName         String
+  managerType         String
+  businessNumber      String?
+  licenseNumber       String?  // CMRAO
+  licenseExpiresAt    DateTime?
+
+  // Financial-management facts — Ontario RTA + CMSA compliance.
+  // Trust account = bank where rent / condo fees are held separate
+  // from operating funds (statutory requirement). Insurance + bond
+  // are CMRAO requirements for condo managers.
+  trustAccountBank    String?
+  insuranceCarrier    String?
+  insurancePolicyNum  String?
+  insuranceExpiresAt  DateTime?
+  managesReserveFund  Boolean  @default(false)
+  fidelityBondAmount  Float?
+
+  createdAt           DateTime @default(now())
+
+  user        User  @relation("ManagerVerificationTarget",   fields: [userId],       references: [id], onDelete: Cascade)
+  reviewedBy  User? @relation("ManagerVerificationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([userId, reviewedAt])
+  @@index([validUntil])
+  @@index([status])
+}
+
 // On-prem appliance license records. Distinct from `License` (which is
 // per-building SaaS licensing) — this one tracks per-appliance licenses
 // issued to on-prem customers, with appliance fingerprint, last

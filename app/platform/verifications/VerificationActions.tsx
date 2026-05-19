@@ -9,8 +9,26 @@ type Result = { ok: true; decision: "approve" | "reject" } | { ok: false; error:
 
 // Two-button row inside the pending-BM list: Approve / Reject. Reject is
 // gated by a confirm dialog because it archives the account and is hard
-// to reverse from the UI today.
-export function VerificationActions({ userId, email }: { userId: string; email: string }) {
+// to reverse from the UI today. The approve flow forwards the company
+// snapshot the BM provided at signup so the server action can create a
+// complete ManagerVerification history row. A future iteration will
+// open a richer modal here to capture financial-management facts
+// (trust account, insurance, fidelity bond) at review time.
+export function VerificationActions({
+  userId,
+  email,
+  company,
+  managerType,
+  businessNumber,
+  licenseNumber,
+}: {
+  userId: string;
+  email: string;
+  company?: string | null;
+  managerType?: string | null;
+  businessNumber?: string | null;
+  licenseNumber?: string | null;
+}) {
   const [approveState, approveAction, approvePending] = useActionState<Result, FormData>(decideVerification, null);
   const [rejectState, rejectAction, rejectPending] = useActionState<Result, FormData>(decideVerification, null);
   const rejectFormRef = useRef<HTMLFormElement>(null);
@@ -33,12 +51,21 @@ export function VerificationActions({ userId, email }: { userId: string; email: 
       <form action={approveAction}>
         <input type="hidden" name="userId" value={userId} />
         <input type="hidden" name="decision" value="approve" />
+        {/* Snapshot the BM's signup-captured facts so the server can
+            create a complete ManagerVerification row. Defaults applied
+            when fields are missing (legacy signups predate capture). */}
+        <input type="hidden" name="companyName" value={company || "Not provided"} />
+        <input type="hidden" name="managerType" value={managerType || "incorporated"} />
+        <input type="hidden" name="businessNumber" value={businessNumber || ""} />
+        <input type="hidden" name="licenseNumber" value={licenseNumber || ""} />
+        <input type="hidden" name="validForMonths" value="12" />
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || !company}
+          title={!company ? "BM hasn't provided a company name — ask them to update before approving." : undefined}
           className="px-4 py-2 sm:px-3 sm:py-1.5 rounded-md text-sm font-medium bg-accent text-accent-foreground hover:bg-accent/90 transition-colors disabled:opacity-60"
         >
-          {approvePending ? "Saving…" : "Approve"}
+          {approvePending ? "Saving…" : company ? "Approve · 12mo" : "Need company info"}
         </button>
       </form>
       <form ref={rejectFormRef} action={rejectAction}>
