@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { updateProfile, updatePassword } from "./actions";
+import { updateProfile, updatePassword, updateRegion } from "./actions";
 
 type Result = { ok: true; message: string } | { ok: false; error: string } | null;
 
@@ -66,6 +66,92 @@ export function ProfileForm({
 
       <button type="submit" disabled={pending} className={buttonClass}>
         {pending ? "Saving…" : "Save profile"}
+      </button>
+    </form>
+  );
+}
+
+// Region + address (postal, city). Editable post-signup so users
+// can correct what they entered or update after moving. Postal
+// format + province cross-check applies; mismatch returns an error
+// from the server action.
+export function RegionForm({
+  defaultRegion,
+  defaultPostalCode,
+  defaultCity,
+}: {
+  defaultRegion: string | null;
+  defaultPostalCode: string | null;
+  defaultCity: string | null;
+}) {
+  const [state, formAction, pending] = useActionState<Result, FormData>(updateRegion, null);
+
+  useEffect(() => {
+    if (state?.ok) toast.success("Region updated");
+    if (state && !state.ok) toast.error("Couldn't save", { description: state.error });
+  }, [state]);
+
+  return (
+    <form action={formAction} className="space-y-4">
+      <div className="grid sm:grid-cols-3 gap-3">
+        <label className="block sm:col-span-1">
+          <span className="block text-sm font-medium text-foreground mb-1.5">Postal code</span>
+          <input
+            name="postalCode"
+            type="text"
+            defaultValue={defaultPostalCode ?? ""}
+            maxLength={10}
+            placeholder="M5V 3A8"
+            autoCapitalize="characters"
+            className={`${inputClass} font-mono uppercase`}
+          />
+        </label>
+        <label className="block sm:col-span-1">
+          <span className="block text-sm font-medium text-foreground mb-1.5">City</span>
+          <input
+            name="city"
+            type="text"
+            defaultValue={defaultCity ?? ""}
+            maxLength={80}
+            placeholder="Toronto"
+            className={inputClass}
+          />
+        </label>
+        <label className="block sm:col-span-1">
+          <span className="block text-sm font-medium text-foreground mb-1.5">Region</span>
+          <select
+            name="region"
+            defaultValue={defaultRegion ?? "CA-ON"}
+            className={inputClass}
+          >
+            <option value="CA-ON">Ontario</option>
+            <option value="CA-QC">Québec</option>
+            <option value="CA-BC">British Columbia</option>
+            <option value="CA-AB">Alberta</option>
+            <option value="CA-MB">Manitoba</option>
+            <option value="CA-SK">Saskatchewan</option>
+            <option value="CA-NS">Nova Scotia</option>
+            <option value="CA-NB">New Brunswick</option>
+            <option value="CA-NL">Newfoundland &amp; Labrador</option>
+            <option value="CA-PE">Prince Edward Island</option>
+            <option value="CA-YT">Yukon</option>
+            <option value="CA-NT">Northwest Territories</option>
+            <option value="CA-NU">Nunavut</option>
+            <option value="OTHER">Other</option>
+          </select>
+        </label>
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        Your region drives which laws and notice formats apply on the{" "}
+        <a href="/legal" className="text-accent hover:underline">Legal &amp; compliance</a>{" "}
+        page. Currently Ontario is fully supported; other regions are coming.
+      </p>
+
+      <FormFeedback state={state} />
+
+      <button type="submit" disabled={pending} className={buttonClass}>
+        {pending ? "Saving…" : "Save region"}
       </button>
     </form>
   );
