@@ -1,6 +1,6 @@
 {
   "name": "buildingsync-app",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "BuildingSync — production R1 (Vercel + Supabase + Stripe). Resident/Tenant + admin (BM/FM/Concierge).",
   "scripts": {
