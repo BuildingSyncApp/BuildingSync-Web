@@ -15,6 +15,7 @@ const PASS_THROUGH_PREFIXES = [
   "/terms",
   "/legal",
   "/security",
+  "/integrations",
   "/docs",
   "/developers",
   "/api",

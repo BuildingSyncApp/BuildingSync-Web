@@ -122,6 +122,37 @@ export default function ForPropertyManagersPage() {
           </p>
         </section>
 
+        {/* Integration stance — open by design */}
+        <section className="mt-16 md:mt-20 bg-card border border-border rounded-xl p-6 md:p-8">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            Integrations
+          </p>
+          <h2 className="mt-2 text-xl font-semibold tracking-tight">
+            Works with everything that has a public API
+          </h2>
+          <p className="mt-3 text-sm text-muted-foreground leading-relaxed max-w-2xl">
+            Smart locks, sensors, HVAC, energy meters, accounting tools — if
+            it has a public API, we can wire it in. If your vendor isn&apos;t
+            on our list yet, tell us and we&apos;ll scope it. Vendors looking
+            to integrate with BuildingSync just need to email — no formal
+            partner-program tier to qualify for.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Link
+              href="/integrations"
+              className="inline-flex items-center px-4 py-2 rounded-md text-sm font-semibold bg-accent text-accent-foreground hover:bg-accent/90 transition-colors"
+            >
+              Common integrations →
+            </Link>
+            <a
+              href="mailto:info@buildingsync.app?subject=Integration%20request"
+              className="inline-flex items-center px-4 py-2 rounded-md text-sm font-semibold border border-border hover:bg-muted transition-colors"
+            >
+              Tell us what to integrate
+            </a>
+          </div>
+        </section>
+
         {/* Pricing summary */}
         <section className="mt-16 md:mt-20 bg-accent/10 border border-accent/40 rounded-xl p-6 md:p-8">
           <p className="font-mono text-[10px] uppercase tracking-widest text-accent">Plain-language pricing</p>

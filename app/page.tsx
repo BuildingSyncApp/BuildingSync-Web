@@ -694,6 +694,7 @@ function SiteFooter() {
         </p>
         <div className="flex items-center gap-4">
           <Link href="/docs" className="hover:text-foreground transition-colors">Docs</Link>
+          <Link href="/integrations" className="hover:text-foreground transition-colors">Integrations</Link>
           <Link href="/legal" className="hover:text-foreground transition-colors">Legal</Link>
           <Link href="/security" className="hover:text-foreground transition-colors">Security</Link>
           <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
