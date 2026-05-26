@@ -48,6 +48,12 @@ build-*.log
 # claude memory dir is workspace-local, not for the repo
 .claude/
 
+# AI agent customization files (local only)
+AGENTS.md
+.github/instructions/
+.github/agents/
+.github/skills/
+
 # package-lock kept untracked to mirror R&D convention
 package-lock.json
 
