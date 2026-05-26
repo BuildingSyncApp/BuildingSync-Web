@@ -100,7 +100,7 @@ export function ContactForm({ defaultTopic = "other" }: { defaultTopic?: Topic }
         </label>
       </div>
       <label className="block">
-        <span className="block text-sm font-medium mb-1.5">What's this about?</span>
+        <span className="block text-sm font-medium mb-1.5">What&apos;s this about?</span>
         <select value={topic} onChange={(e) => setTopic(e.target.value as Topic)} className={inputClass}>
           {TOPICS.map((t) => (
             <option key={t.value} value={t.value}>{t.label}</option>
@@ -123,7 +123,7 @@ export function ContactForm({ defaultTopic = "other" }: { defaultTopic?: Topic }
       </label>
 
       {/* Honeypot — visually hidden but still submitted by bots that fill all fields. */}
-      <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
+      <div aria-hidden="true" className="absolute -left-10000 h-0 w-0 overflow-hidden">
         <label>
           Company website
           <input
