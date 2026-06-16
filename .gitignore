@@ -45,7 +45,10 @@ yarn-error.log*
 build-*.txt
 build-*.log
 
-# claude memory dir is workspace-local, not for the repo
+# Claude Code workspace config — local only, never committed.
+# Covers agents (.claude/agents/), skills (.claude/skills/), the memory
+# dir, settings.local.json, and the README index. Personal tooling, not
+# shared via the repo or mirrored downstream.
 .claude/
 
 # AI agent customization files (local only)
