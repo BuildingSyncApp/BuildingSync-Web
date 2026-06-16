@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { sendEmailFireAndForget, announcementBroadcastEmail } from "@/lib/email";
 import { sendPushToUsers } from "@/lib/push";
 import { logAuditFireAndForget } from "@/lib/audit";
+import { can } from "@/lib/permissions";
+import { impersonationWriteGuard } from "@/lib/impersonation-server";
 
 const Body = z.object({
   title: z.string().trim().min(1).max(200),
@@ -18,9 +20,11 @@ export async function POST(request: NextRequest) {
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const { appUser } = session;
-  if (appUser.role !== "building_manager") {
+  if (!can(appUser, "announcement.post")) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
+  const impBlock = await impersonationWriteGuard();
+  if (impBlock) return NextResponse.json({ error: impBlock }, { status: 403 });
   if (!appUser.buildingId) {
     return NextResponse.json({ error: "no_building_assigned" }, { status: 409 });
   }

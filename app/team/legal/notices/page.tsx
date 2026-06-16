@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
+import { can } from "@/lib/permissions";
 import { formatRelative } from "@/lib/format";
 import { NOTICE_TEMPLATES, type NoticeType } from "@/lib/notices";
 
@@ -14,7 +15,7 @@ const STATUS_TONES: Record<string, string> = {
 
 export default async function NoticesListPage() {
   const { appUser } = await requireTeam();
-  if (appUser.role !== "building_manager") redirect("/team");
+  if (!can(appUser, "notice.manage")) redirect("/team");
   if (!appUser.buildingId) redirect("/team");
 
   const notices = await prisma.notice

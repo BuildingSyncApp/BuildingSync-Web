@@ -6,13 +6,8 @@ import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
 import { logAuditFireAndForget } from "@/lib/audit";
 import { sendPushToUsers } from "@/lib/push";
-
-// All team roles can report incidents (concierge is the most common
-// reporter — front desk sees things first). BM/FM also report and resolve.
-const REPORTING_ROLES = ["building_manager", "facility_manager", "concierge"];
-
-// Status changes are limited to BM/FM. Concierge can report but not resolve.
-const RESOLUTION_ROLES = ["building_manager", "facility_manager"];
+import { can } from "@/lib/permissions";
+import { impersonationWriteGuard } from "@/lib/impersonation-server";
 
 const ReportBody = z.object({
   type: z.enum(["security", "safety", "noise", "damage", "other"]),
@@ -26,9 +21,11 @@ type ReportResult = { ok: true; incidentId: string } | { ok: false; error: strin
 
 export async function reportIncident(_prev: unknown, formData: FormData): Promise<ReportResult> {
   const session = await requireTeam();
-  if (!REPORTING_ROLES.includes(session.appUser.role)) {
+  if (!can(session.appUser, "incident.report")) {
     return { ok: false, error: "You don't have permission to report incidents." };
   }
+  const impBlock = await impersonationWriteGuard();
+  if (impBlock) return { ok: false, error: impBlock };
   if (!session.appUser.buildingId) {
     return { ok: false, error: "Your account is not linked to a building." };
   }
@@ -117,9 +114,11 @@ export async function updateIncidentStatus(
   formData: FormData,
 ): Promise<{ ok: true; status: string } | { ok: false; error: string }> {
   const session = await requireTeam();
-  if (!RESOLUTION_ROLES.includes(session.appUser.role)) {
+  if (!can(session.appUser, "incident.resolve")) {
     return { ok: false, error: "Only Building Managers and Facility Managers can change incident status." };
   }
+  const impBlock = await impersonationWriteGuard();
+  if (impBlock) return { ok: false, error: impBlock };
 
   const parsed = StatusBody.safeParse({
     incidentId: formData.get("incidentId"),

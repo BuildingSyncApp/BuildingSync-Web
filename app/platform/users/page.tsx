@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { requirePlatformAdmin } from "@/lib/platform";
 import { prisma } from "@/lib/prisma";
+import { isImpersonationConfigured } from "@/lib/impersonation";
 import { Avatar } from "@/components/Avatar";
 import { updateUser } from "./actions";
+import { startImpersonation } from "@/app/platform/impersonate/actions";
 
 const ROLES = [
   "resident",
@@ -15,6 +17,7 @@ const ROLES = [
 
 export default async function UsersPage() {
   const { appUser } = await requirePlatformAdmin();
+  const canImpersonate = isImpersonationConfigured();
 
   const [users, buildings] = await Promise.all([
     prisma.user.findMany({
@@ -45,6 +48,7 @@ export default async function UsersPage() {
               <th className="text-left py-3 px-5 font-semibold">Role</th>
               <th className="text-left py-3 px-5 font-semibold">Building</th>
               <th className="text-left py-3 px-5 font-semibold">Unit</th>
+              <th className="text-left py-3 px-5 font-semibold">View as</th>
               <th className="text-right py-3 px-5 font-semibold">Joined</th>
             </tr>
           </thead>
@@ -108,6 +112,23 @@ export default async function UsersPage() {
                   </td>
                   <td className="py-3 px-5 align-top text-muted-foreground">
                     {u.unitRel ? `Unit ${u.unitRel.unitNumber}` : u.unit ? `Unit ${u.unit}` : "—"}
+                  </td>
+                  <td className="py-3 px-5 align-top">
+                    {canImpersonate && !isMe && u.role !== "admin" ? (
+                      <form action={startImpersonation}>
+                        <input type="hidden" name="mode" value="user" />
+                        <input type="hidden" name="targetUserId" value={u.id} />
+                        <button
+                          type="submit"
+                          className="text-xs px-2 py-1 rounded-md border border-accent/40 text-accent hover:bg-accent/10 transition-colors"
+                          title="Open this user's portal as them (full act-as)"
+                        >
+                          View as
+                        </button>
+                      </form>
+                    ) : (
+                      <span className="text-xs text-muted-foreground/50">—</span>
+                    )}
                   </td>
                   <td className="py-3 px-5 align-top text-right text-xs text-muted-foreground tabular-nums">
                     {new Date(u.createdAt).toLocaleDateString()}

@@ -5,6 +5,8 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getAnthropic, isAnthropicConfigured } from "@/lib/anthropic";
 import { logAuditFireAndForget } from "@/lib/audit";
+import { can } from "@/lib/permissions";
+import { impersonationWriteGuard } from "@/lib/impersonation-server";
 
 // Drafts a building announcement from a one-line BM prompt. BM-only.
 // Uses Sonnet 4.6 with structured outputs so the response is always a
@@ -86,9 +88,11 @@ export async function POST(request: Request) {
     }
 
     const { authUser, appUser } = await requireUser();
-    if (appUser.role !== "building_manager") {
+    if (!can(appUser, "announcement.draft_ai")) {
       return NextResponse.json({ error: "Only the Building Manager can draft announcements." }, { status: 403 });
     }
+    const impBlock = await impersonationWriteGuard();
+    if (impBlock) return NextResponse.json({ error: impBlock }, { status: 403 });
     if (!appUser.buildingId) {
       return NextResponse.json({ error: "No building on your account." }, { status: 409 });
     }

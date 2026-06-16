@@ -1,5 +1,6 @@
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
+import { can } from "@/lib/permissions";
 import { EmptyState } from "@/components/EmptyState";
 import { WorkOrderRow } from "./WorkOrderRow";
 import { AiTriageBanner } from "@/components/AiTriageBanner";
@@ -30,7 +31,7 @@ export default async function TeamWorkOrdersPage() {
     take: 100,
   });
 
-  const canAct = appUser.role === "facility_manager" || appUser.role === "building_manager";
+  const canAct = can(appUser, "workorder.manage");
 
   return (
     <main className="px-4 md:px-6 py-8 md:py-10 max-w-5xl mx-auto">

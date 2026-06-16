@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireTeam } from "@/lib/team";
+import { can } from "@/lib/permissions";
 import { Card } from "@/components/ui";
 import { NewBuildingForm } from "./NewBuildingForm";
 
@@ -9,7 +10,7 @@ import { NewBuildingForm } from "./NewBuildingForm";
 // flow on purpose.
 export default async function NewTeamBuildingPage() {
   const { appUser } = await requireTeam();
-  if (appUser.role !== "building_manager") redirect("/team");
+  if (!can(appUser, "building.create")) redirect("/team");
   if (appUser.buildingId) redirect("/team");
 
   return (

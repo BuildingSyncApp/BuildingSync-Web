@@ -3,6 +3,7 @@ import type { User as AuthUser } from "@supabase/supabase-js";
 import { getOrCreateAppUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { User as AppUser } from "@prisma/client";
+import type { ImpersonationSession } from "@/lib/impersonation";
 
 // Unified auth resolver for API routes that need to support both the web
 // app (cookie-based Supabase session) and native clients (Authorization:
@@ -29,12 +30,15 @@ async function resolveBearer(token: string): Promise<{ authUser: AuthUser; appUs
 
 export async function getApiUser(
   request: Request,
-): Promise<{ authUser: AuthUser; appUser: AppUser } | null> {
+): Promise<{ authUser: AuthUser; appUser: AppUser; impersonation?: ImpersonationSession } | null> {
   const auth = request.headers.get("authorization");
   if (auth && auth.toLowerCase().startsWith("bearer ")) {
+    // Native/mobile bearer path NEVER impersonates — impersonation is a
+    // cookie-only, admin-web concern. Resolve and return immediately.
     const token = auth.slice(7).trim();
     if (token) return resolveBearer(token);
     return null;
   }
+  // Cookie path: getOrCreateAppUser applies any active impersonation swap.
   return getOrCreateAppUser();
 }

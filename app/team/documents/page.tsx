@@ -1,10 +1,9 @@
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
+import { can } from "@/lib/permissions";
 import { EmptyState } from "@/components/EmptyState";
 import { UploadDocumentForm } from "./UploadDocumentForm";
 import { DocumentsList } from "./DocumentsList";
-
-const CAN_MANAGE = ["building_manager", "facility_manager"];
 
 export default async function TeamDocumentsPage() {
   const { appUser } = await requireTeam();
@@ -18,7 +17,7 @@ export default async function TeamDocumentsPage() {
     );
   }
 
-  const canManage = CAN_MANAGE.includes(appUser.role);
+  const canManage = can(appUser, "document.manage");
 
   const documents = await prisma.document.findMany({
     where: { buildingId: appUser.buildingId, deletedAt: null },

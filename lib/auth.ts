@@ -7,12 +7,14 @@ import type { User as AppUser } from "@prisma/client";
 import { findBuildingByInviteCode, normalizeInviteCode } from "@/lib/invite-code";
 import { logAuditFireAndForget } from "@/lib/audit";
 import { validatePostalAgainstBuilding } from "@/lib/postal";
+import { resolveImpersonation } from "@/lib/impersonation-server";
+import type { ImpersonationSession } from "@/lib/impersonation";
 
 // Reads the Supabase session, then upserts the app-side User row keyed by
 // the Supabase auth.uid. New signups land here as `resident` with no
 // building/unit until a Building Manager assigns them — unless they
 // signed up with a building invite code, in which case we auto-link.
-export async function getOrCreateAppUser(): Promise<{ authUser: AuthUser; appUser: AppUser } | null> {
+export async function getOrCreateAppUser(): Promise<{ authUser: AuthUser; appUser: AppUser; impersonation?: ImpersonationSession } | null> {
   const supabase = await createClient(await cookies());
   const { data: { user } } = await supabase.auth.getUser();
   if (!user || !user.email) return null;
@@ -107,6 +109,16 @@ export async function getOrCreateAppUser(): Promise<{ authUser: AuthUser; appUse
       }
     }
     await supabase.auth.updateUser({ data: { invite_code: null } }).catch(() => {});
+  }
+
+  // Admin "View as / impersonate" swap. Resolves to a target identity only
+  // when the real session is an admin AND a valid signed token is present
+  // (lib/impersonation-server). Every downstream guard (requireUser/Team/
+  // PlatformAdmin, resolvePortalUrl) flows through this return, so all
+  // access decisions follow the impersonated identity automatically.
+  const impersonation = await resolveImpersonation(appUser).catch(() => null);
+  if (impersonation) {
+    return { authUser: user, appUser: impersonation.appUser, impersonation: impersonation.session };
   }
 
   return { authUser: user, appUser };

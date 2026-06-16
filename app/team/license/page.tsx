@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
+import { can } from "@/lib/permissions";
 import { daysRemaining } from "@/lib/license";
 import { formatRelative, formatDateShort } from "@/lib/format";
 import { LicenseForm } from "./LicenseForm";
@@ -36,7 +37,7 @@ export default async function LicensePage({
   searchParams?: Promise<{ validated?: string }>;
 }) {
   const { appUser } = await requireTeam();
-  if (appUser.role !== "building_manager") redirect("/team");
+  if (!can(appUser, "license.manage")) redirect("/team");
   if (!appUser.buildingId) redirect("/team");
 
   const params = (await searchParams) || {};

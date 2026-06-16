@@ -5,6 +5,8 @@ import { z } from "zod";
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
 import { logAuditFireAndForget } from "@/lib/audit";
+import { can } from "@/lib/permissions";
+import { impersonationWriteGuard } from "@/lib/impersonation-server";
 
 const Body = z.object({
   announcementId: z.string().min(1),
@@ -17,9 +19,11 @@ type Result = { ok: true } | { ok: false; error: string };
 // was posted can still see when (and by whom) it was retracted.
 export async function deleteAnnouncement(_prev: unknown, formData: FormData): Promise<Result> {
   const session = await requireTeam();
-  if (session.appUser.role !== "building_manager") {
+  if (!can(session.appUser, "announcement.delete")) {
     return { ok: false, error: "Only Building Managers can delete announcements." };
   }
+  const impBlock = await impersonationWriteGuard();
+  if (impBlock) return { ok: false, error: impBlock };
   if (!session.appUser.buildingId) {
     return { ok: false, error: "Your account is not linked to a building." };
   }

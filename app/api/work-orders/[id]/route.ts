@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { sendEmailFireAndForget, workOrderStatusChangedEmail } from "@/lib/email";
 import { logAuditFireAndForget } from "@/lib/audit";
 import { sendPushToUser } from "@/lib/push";
+import { can } from "@/lib/permissions";
+import { impersonationWriteGuard } from "@/lib/impersonation-server";
 
 // Live-DB enum: open → in_progress → scheduled → completed → closed.
 // We only expose the linear flow (open → in_progress → closed) for R1.
@@ -18,9 +20,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const { appUser } = session;
-  if (!["building_manager", "facility_manager"].includes(appUser.role)) {
+  if (!can(appUser, "workorder.manage")) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
+  const impBlock = await impersonationWriteGuard();
+  if (impBlock) return NextResponse.json({ error: impBlock }, { status: 403 });
 
   const { id } = await params;
   const parsed = PatchBody.safeParse(await request.json());

@@ -2,13 +2,14 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
+import { can } from "@/lib/permissions";
 
 // Legal hub for the BM. Today: Ontario RTA notices. Lease renewals
 // + insurance certs + compliance calendar land in subsequent rounds.
 
 export default async function LegalHomePage() {
   const { appUser } = await requireTeam();
-  if (appUser.role !== "building_manager") redirect("/team");
+  if (!can(appUser, "notice.manage")) redirect("/team");
   if (!appUser.buildingId) redirect("/team");
 
   const noticeCounts = await prisma.notice

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
+import { can } from "@/lib/permissions";
 import { formatRelative, formatDateShort } from "@/lib/format";
 import { LogDeliveryForm } from "./LogDeliveryForm";
 import { PickedUpButton } from "./PickedUpButton";
@@ -10,7 +11,7 @@ import { PickedUpButton } from "./PickedUpButton";
 
 export default async function TeamPackagesPage() {
   const { appUser } = await requireTeam();
-  if (appUser.role !== "concierge" && appUser.role !== "building_manager") {
+  if (!can(appUser, "delivery.manage")) {
     redirect("/team");
   }
   if (!appUser.buildingId) redirect("/team");

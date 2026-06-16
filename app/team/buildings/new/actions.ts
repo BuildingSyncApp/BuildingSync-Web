@@ -7,6 +7,8 @@ import { z } from "zod";
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
 import { logAuditFireAndForget } from "@/lib/audit";
+import { can } from "@/lib/permissions";
+import { impersonationWriteGuard } from "@/lib/impersonation-server";
 import {
   detectPostalKind,
   normalizeCanadian,
@@ -69,9 +71,11 @@ type Result = { ok: true } | { ok: false; error: string };
 export async function createTeamBuilding(_prev: unknown, formData: FormData): Promise<Result> {
   const session = await requireTeam();
 
-  if (session.appUser.role !== "building_manager") {
+  if (!can(session.appUser, "building.create")) {
     return { ok: false, error: "Only Building Managers can create a building." };
   }
+  const impBlock = await impersonationWriteGuard();
+  if (impBlock) return { ok: false, error: impBlock };
   if (session.appUser.buildingId) {
     return { ok: false, error: "You're already linked to a building. Contact platform support to switch." };
   }
