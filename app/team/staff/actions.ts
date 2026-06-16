@@ -8,6 +8,8 @@ import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
 import { sendEmail, welcomeEmail } from "@/lib/email";
 import { logAuditFireAndForget } from "@/lib/audit";
+import { can } from "@/lib/permissions";
+import { impersonationWriteGuard } from "@/lib/impersonation-server";
 
 // Server-side Supabase client with the SERVICE_ROLE key — required for
 // auth.admin.createUser. Never expose this client to the browser.
@@ -18,10 +20,6 @@ function adminSupabase() {
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
 }
-
-// Building Manager is the only role that can hire staff. FMs run operations
-// but don't manage headcount; concierges have no admin powers at all.
-const HIRING_ROLES = ["building_manager"];
 
 const Body = z.object({
   email: z.string().email().toLowerCase(),
@@ -35,9 +33,12 @@ type Result =
 
 export async function addStaff(_prev: unknown, formData: FormData): Promise<Result> {
   const session = await requireTeam();
-  if (!HIRING_ROLES.includes(session.appUser.role)) {
+  if (!can(session.appUser, "staff.manage")) {
     return { ok: false, error: "Only Building Managers can hire facility managers and concierges." };
   }
+  // Creates a real Supabase auth user + sends credentials — never while impersonating.
+  const impBlock = await impersonationWriteGuard({ irreversible: true });
+  if (impBlock) return { ok: false, error: impBlock };
   if (!session.appUser.buildingId) {
     return { ok: false, error: "Your account is not linked to a building." };
   }
@@ -142,9 +143,11 @@ type SimpleResult = { ok: true } | { ok: false; error: string };
 // Doesn't touch the auth user — just the app User.role + audit trail.
 export async function changeStaffRole(_prev: unknown, formData: FormData): Promise<SimpleResult> {
   const session = await requireTeam();
-  if (!HIRING_ROLES.includes(session.appUser.role)) {
+  if (!can(session.appUser, "staff.manage")) {
     return { ok: false, error: "Only Building Managers can change staff roles." };
   }
+  const impBlock = await impersonationWriteGuard();
+  if (impBlock) return { ok: false, error: impBlock };
   if (!session.appUser.buildingId) {
     return { ok: false, error: "Your account is not linked to a building." };
   }
@@ -198,9 +201,11 @@ const ArchiveBody = z.object({
 // resolve historical actions; BM can re-add by email if it was a mistake.
 export async function archiveStaff(_prev: unknown, formData: FormData): Promise<SimpleResult> {
   const session = await requireTeam();
-  if (!HIRING_ROLES.includes(session.appUser.role)) {
+  if (!can(session.appUser, "staff.manage")) {
     return { ok: false, error: "Only Building Managers can deactivate staff." };
   }
+  const impBlock = await impersonationWriteGuard();
+  if (impBlock) return { ok: false, error: impBlock };
   if (!session.appUser.buildingId) {
     return { ok: false, error: "Your account is not linked to a building." };
   }

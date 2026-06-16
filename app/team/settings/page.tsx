@@ -1,5 +1,6 @@
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
+import { can } from "@/lib/permissions";
 import { getLocale } from "@/lib/locale-server";
 import { SettingsShell, parseTab } from "@/components/SettingsShell";
 import { ProfileForm, PasswordForm } from "@/app/dashboard/account/AccountForms";
@@ -34,7 +35,7 @@ export default async function TeamSettingsPage({
       backLabel="team home"
       role={appUser.role}
       active={active}
-      licenseHref={appUser.role === "building_manager" ? "/team/license" : undefined}
+      licenseHref={can(appUser, "license.manage") ? "/team/license" : undefined}
     >
       {active === "profile" && (
         <div className="space-y-6">

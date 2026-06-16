@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { headers } from "next/headers";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getImpersonationContext } from "@/lib/impersonation-server";
 
 interface LogAuditArgs {
   userId: string | null;
@@ -27,6 +28,23 @@ export async function logAudit(args: LogAuditArgs): Promise<void> {
       null;
     const userAgent = reqHeaders?.get("user-agent") ?? null;
 
+    // When the action ran under an admin impersonation, stamp the real
+    // human so the trail never loses who actually acted (data writes still
+    // attribute to the impersonated target). Memoized + token-only, so this
+    // is cheap and never throws outside a request.
+    let changes = args.changes;
+    try {
+      const imp = await getImpersonationContext();
+      if (imp.active) {
+        changes = {
+          ...(changes ?? {}),
+          _actingAdmin: { adminId: imp.adminId, adminEmail: imp.adminEmail, mode: imp.mode },
+        };
+      }
+    } catch {
+      /* no request context (e.g. a script) — skip attribution */
+    }
+
     await prisma.auditLog.create({
       data: {
         id: randomUUID(),
@@ -37,9 +55,9 @@ export async function logAudit(args: LogAuditArgs): Promise<void> {
         resource: args.resource,
         resourceId: args.resourceId ?? null,
         changes:
-          args.changes === undefined || args.changes === null
+          changes === undefined || changes === null
             ? Prisma.DbNull
-            : (args.changes as Prisma.InputJsonValue),
+            : (changes as Prisma.InputJsonValue),
         ipAddress,
         userAgent,
         status: args.status ?? "success",

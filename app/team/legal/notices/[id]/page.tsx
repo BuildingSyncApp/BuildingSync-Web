@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
+import { can } from "@/lib/permissions";
 import {
   NOTICE_TEMPLATES,
   earliestTerminationDate,
@@ -29,7 +30,7 @@ export default async function NoticeDetailPage({
 }) {
   const { id } = await params;
   const { appUser } = await requireTeam();
-  if (appUser.role !== "building_manager") redirect("/team");
+  if (!can(appUser, "notice.manage")) redirect("/team");
   if (!appUser.buildingId) redirect("/team");
 
   const notice = await prisma.notice.findUnique({ where: { id } });

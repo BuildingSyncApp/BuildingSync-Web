@@ -7,8 +7,8 @@ import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
 import { logAuditFireAndForget } from "@/lib/audit";
 import { sendPushToUser } from "@/lib/push";
-
-const LOGGING_ROLES = ["concierge", "building_manager"];
+import { can } from "@/lib/permissions";
+import { impersonationWriteGuard } from "@/lib/impersonation-server";
 
 // 4-digit pickup code prefixed with B (e.g. "B-2244"). Concierge
 // reads it back to the resident at pickup time.
@@ -30,9 +30,11 @@ export type DeliveryResult =
 
 export async function logDelivery(formData: FormData): Promise<DeliveryResult> {
   const { authUser, appUser } = await requireTeam();
-  if (!LOGGING_ROLES.includes(appUser.role)) {
+  if (!can(appUser, "delivery.manage")) {
     return { ok: false, error: "Only Concierge and Building Manager can log packages." };
   }
+  const impBlock = await impersonationWriteGuard();
+  if (impBlock) return { ok: false, error: impBlock };
   if (!appUser.buildingId) {
     return { ok: false, error: "Your account is not linked to a building." };
   }
@@ -102,9 +104,11 @@ export async function logDelivery(formData: FormData): Promise<DeliveryResult> {
 
 export async function markDeliveryPickedUp(formData: FormData): Promise<{ ok: true } | { ok: false; error: string }> {
   const { authUser, appUser } = await requireTeam();
-  if (!LOGGING_ROLES.includes(appUser.role)) {
+  if (!can(appUser, "delivery.manage")) {
     return { ok: false, error: "Only Concierge and Building Manager can mark packages picked up." };
   }
+  const impBlock = await impersonationWriteGuard();
+  if (impBlock) return { ok: false, error: impBlock };
   const id = String(formData.get("id") || "");
   if (!id) return { ok: false, error: "Missing delivery id." };
 

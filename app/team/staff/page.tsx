@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { Avatar } from "@/components/Avatar";
 import { StatusPill } from "@/components/StatusPill";
 import { roleLabel } from "@/components/RoleBadge";
+import { can } from "@/lib/permissions";
 import { AddStaffForm } from "./AddStaffForm";
 import { StaffRowActions } from "./StaffRowActions";
 
@@ -14,7 +15,7 @@ export default async function TeamStaffPage() {
   const { appUser } = await requireTeam();
 
   // BM-only page. Other team roles get bumped back to /team.
-  if (appUser.role !== "building_manager") redirect("/team");
+  if (!can(appUser, "staff.manage")) redirect("/team");
 
   if (!appUser.buildingId) {
     return (

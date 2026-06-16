@@ -7,6 +7,8 @@ import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
 import { verifyLicense } from "@/lib/license";
 import { logAuditFireAndForget } from "@/lib/audit";
+import { can } from "@/lib/permissions";
+import { impersonationWriteGuard } from "@/lib/impersonation-server";
 
 export type LicenseActionResult = { ok: true } | { ok: false; error: string };
 
@@ -15,9 +17,12 @@ export type LicenseActionResult = { ok: true } | { ok: false; error: string };
 // state.
 export async function validateLicenseKey(formData: FormData): Promise<LicenseActionResult> {
   const { authUser, appUser } = await requireTeam();
-  if (appUser.role !== "building_manager") {
+  if (!can(appUser, "license.manage")) {
     return { ok: false, error: "Only the Building Manager can update the license." };
   }
+  // Writes subscription/licensing state — never while impersonating.
+  const impBlock = await impersonationWriteGuard({ irreversible: true });
+  if (impBlock) return { ok: false, error: impBlock };
   if (!appUser.buildingId) {
     return { ok: false, error: "No building is associated with your account." };
   }
@@ -80,9 +85,11 @@ export async function validateLicenseKey(formData: FormData): Promise<LicenseAct
 // confirm they're alive; SaaS uses it as a timestamp of "last touched".
 export async function sendLicenseHeartbeat(): Promise<LicenseActionResult> {
   const { authUser, appUser } = await requireTeam();
-  if (appUser.role !== "building_manager") {
+  if (!can(appUser, "license.manage")) {
     return { ok: false, error: "Only the Building Manager can send the heartbeat." };
   }
+  const impBlock = await impersonationWriteGuard();
+  if (impBlock) return { ok: false, error: impBlock };
   if (!appUser.buildingId) {
     return { ok: false, error: "No building is associated with your account." };
   }

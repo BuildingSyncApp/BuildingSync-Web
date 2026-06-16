@@ -6,8 +6,8 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
-
-const ALLOWED_ROLES = ["building_manager", "facility_manager"];
+import { can } from "@/lib/permissions";
+import { impersonationWriteGuard } from "@/lib/impersonation-server";
 
 const Body = z.object({
   unitNumber: z.string().trim().min(1).max(20),
@@ -21,9 +21,11 @@ type Result =
 
 export async function addUnit(_prev: unknown, formData: FormData): Promise<Result> {
   const session = await requireTeam();
-  if (!ALLOWED_ROLES.includes(session.appUser.role)) {
+  if (!can(session.appUser, "unit.manage")) {
     return { ok: false, error: "Only Building Managers and Facility Managers can add units." };
   }
+  const impBlock = await impersonationWriteGuard();
+  if (impBlock) return { ok: false, error: impBlock };
   if (!session.appUser.buildingId) {
     return { ok: false, error: "Your account is not linked to a building." };
   }
@@ -70,9 +72,11 @@ type BulkResult =
 
 export async function bulkAddUnits(_prev: unknown, formData: FormData): Promise<BulkResult> {
   const session = await requireTeam();
-  if (!ALLOWED_ROLES.includes(session.appUser.role)) {
+  if (!can(session.appUser, "unit.manage")) {
     return { ok: false, error: "Only Building Managers and Facility Managers can bulk-import units." };
   }
+  const impBlock = await impersonationWriteGuard();
+  if (impBlock) return { ok: false, error: impBlock };
   if (!session.appUser.buildingId) {
     return { ok: false, error: "Your account is not linked to a building." };
   }

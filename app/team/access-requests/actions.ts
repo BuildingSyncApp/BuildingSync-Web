@@ -4,14 +4,19 @@ import { revalidatePath } from "next/cache";
 import { requireTeam } from "@/lib/team";
 import { rotateInviteCode } from "@/lib/invite-code";
 import { logAuditFireAndForget } from "@/lib/audit";
+import { can } from "@/lib/permissions";
+import { impersonationWriteGuard } from "@/lib/impersonation-server";
 
 export type RotateResult = { ok: true; code: string } | { ok: false; error: string };
 
 export async function rotateBuildingInviteCode(): Promise<RotateResult> {
   const { authUser, appUser } = await requireTeam();
-  if (appUser.role !== "building_manager") {
+  if (!can(appUser, "access_request.manage")) {
     return { ok: false, error: "Only the Building Manager can rotate the invite code." };
   }
+  // Rotating the invite code invalidates outstanding invites — never while impersonating.
+  const impBlock = await impersonationWriteGuard({ irreversible: true });
+  if (impBlock) return { ok: false, error: impBlock };
   if (!appUser.buildingId) {
     return { ok: false, error: "No building on your account." };
   }

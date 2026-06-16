@@ -1,10 +1,9 @@
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
+import { can } from "@/lib/permissions";
 import { Avatar } from "@/components/Avatar";
 import { ResidentOnboardPanel } from "./ResidentOnboardPanel";
 import { LeaseSection } from "./LeaseSection";
-
-const CAN_ADD = ["building_manager", "facility_manager"];
 
 export default async function TeamResidentsPage() {
   const { appUser } = await requireTeam();
@@ -18,7 +17,7 @@ export default async function TeamResidentsPage() {
     );
   }
 
-  const canAdd = CAN_ADD.includes(appUser.role);
+  const canAdd = can(appUser, "resident.manage");
 
   const [residents, units, leases, building] = await Promise.all([
     prisma.user.findMany({

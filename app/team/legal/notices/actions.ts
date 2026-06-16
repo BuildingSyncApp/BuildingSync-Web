@@ -7,6 +7,8 @@ import { Prisma } from "@prisma/client";
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
 import { logAuditFireAndForget } from "@/lib/audit";
+import { can } from "@/lib/permissions";
+import { impersonationWriteGuard } from "@/lib/impersonation-server";
 import {
   NOTICE_TEMPLATES,
   remediationDeadline,
@@ -16,17 +18,17 @@ import {
   type N12Payload,
 } from "@/lib/notices";
 
-const LEGAL_ROLES = ["building_manager"];
-
 type Ok = { ok: true };
 type Err = { ok: false; error: string };
 type Result<T = unknown> = (Ok & T) | Err;
 
 export async function createNotice(formData: FormData): Promise<Result<{ id: string }> | void> {
   const { authUser, appUser } = await requireTeam();
-  if (!LEGAL_ROLES.includes(appUser.role)) {
+  if (!can(appUser, "notice.manage")) {
     return { ok: false, error: "Only the Building Manager can create legal notices." };
   }
+  const impBlock = await impersonationWriteGuard();
+  if (impBlock) return { ok: false, error: impBlock };
   if (!appUser.buildingId) {
     return { ok: false, error: "No building on your account." };
   }
@@ -123,9 +125,11 @@ export async function createNotice(formData: FormData): Promise<Result<{ id: str
 
 export async function markNoticeServed(formData: FormData): Promise<Ok | Err | void> {
   const { authUser, appUser } = await requireTeam();
-  if (!LEGAL_ROLES.includes(appUser.role)) {
+  if (!can(appUser, "notice.manage")) {
     return { ok: false, error: "Only the Building Manager can serve notices." };
   }
+  const impBlock = await impersonationWriteGuard();
+  if (impBlock) return { ok: false, error: impBlock };
 
   const id = String(formData.get("id") || "");
   const method = String(formData.get("method") || "in_person");
@@ -170,9 +174,11 @@ export async function markNoticeServed(formData: FormData): Promise<Ok | Err | v
 
 export async function withdrawNotice(formData: FormData): Promise<Ok | Err | void> {
   const { authUser, appUser } = await requireTeam();
-  if (!LEGAL_ROLES.includes(appUser.role)) {
+  if (!can(appUser, "notice.manage")) {
     return { ok: false, error: "Only the Building Manager can withdraw notices." };
   }
+  const impBlock = await impersonationWriteGuard();
+  if (impBlock) return { ok: false, error: impBlock };
   const id = String(formData.get("id") || "");
   const notice = await prisma.notice.findUnique({ where: { id } });
   if (!notice || notice.buildingId !== appUser.buildingId) {

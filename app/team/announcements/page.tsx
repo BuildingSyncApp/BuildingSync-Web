@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
+import { can } from "@/lib/permissions";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusPill, type Tone } from "@/components/StatusPill";
 import { formatRelative } from "@/lib/format";
@@ -20,7 +21,7 @@ const AUDIENCE_TONE: Record<string, Tone> = {
 
 export default async function TeamAnnouncementsPage() {
   const { appUser } = await requireTeam();
-  if (appUser.role !== "building_manager") redirect("/team");
+  if (!can(appUser, "announcement.post")) redirect("/team");
 
   const [announcements, units] = await Promise.all([
     appUser.buildingId

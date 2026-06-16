@@ -4,6 +4,8 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
 import { getAnthropic, isAnthropicConfigured } from "@/lib/anthropic";
+import { can } from "@/lib/permissions";
+import { impersonationWriteGuard } from "@/lib/impersonation-server";
 
 // Triage summary for the BM/FM work-order queue. Takes the current
 // open + in-progress work orders, returns a one-line summary the BM
@@ -12,8 +14,6 @@ import { getAnthropic, isAnthropicConfigured } from "@/lib/anthropic";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-const TRIAGE_ROLES = ["building_manager", "facility_manager"];
 
 const TriageSchema = z.object({
   summary: z
@@ -102,9 +102,11 @@ export async function POST() {
     }
 
     const { appUser } = await requireTeam();
-    if (!TRIAGE_ROLES.includes(appUser.role)) {
+    if (!can(appUser, "workorder.triage")) {
       return NextResponse.json({ error: "Only BM/FM can run triage." }, { status: 403 });
     }
+    const impBlock = await impersonationWriteGuard();
+    if (impBlock) return NextResponse.json({ error: impBlock }, { status: 403 });
     if (!appUser.buildingId) {
       return NextResponse.json({ error: "No building on your account." }, { status: 409 });
     }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
+import { can } from "@/lib/permissions";
 import { Avatar } from "@/components/Avatar";
 import { roleLabel } from "@/components/RoleBadge";
 import { formatRelative } from "@/lib/format";
@@ -23,7 +24,7 @@ const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 export default async function AccessRequestsPage() {
   const { appUser } = await requireTeam();
-  if (appUser.role !== "building_manager") redirect("/team");
+  if (!can(appUser, "access_request.manage")) redirect("/team");
   if (!appUser.buildingId) redirect("/team");
 
   const since = new Date(Date.now() - THIRTY_DAYS_MS);

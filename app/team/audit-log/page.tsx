@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
+import { can } from "@/lib/permissions";
 import { AuditLogTable, type AuditRow } from "@/components/AuditLogTable";
 
 // Building-scoped audit feed. Visible to BM only — FM/concierge see the
@@ -9,7 +10,7 @@ import { AuditLogTable, type AuditRow } from "@/components/AuditLogTable";
 
 export default async function TeamAuditLogPage() {
   const { appUser } = await requireTeam();
-  if (appUser.role !== "building_manager") redirect("/team");
+  if (!can(appUser, "audit.view")) redirect("/team");
   if (!appUser.buildingId) redirect("/team");
 
   const rows = (await prisma.auditLog

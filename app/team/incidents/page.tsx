@@ -1,10 +1,9 @@
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
+import { can } from "@/lib/permissions";
 import { EmptyState } from "@/components/EmptyState";
 import { ReportIncidentForm } from "./ReportIncidentForm";
 import { IncidentRow } from "./IncidentRow";
-
-const RESOLUTION_ROLES = ["building_manager", "facility_manager"];
 
 export default async function TeamIncidentsPage() {
   const { appUser } = await requireTeam();
@@ -25,7 +24,7 @@ export default async function TeamIncidentsPage() {
     include: { reportedBy: { select: { name: true, email: true } } },
   });
 
-  const canResolve = RESOLUTION_ROLES.includes(appUser.role);
+  const canResolve = can(appUser, "incident.resolve");
   const open = incidents.filter((i) => i.status !== "resolved");
   const resolved = incidents.filter((i) => i.status === "resolved");
 

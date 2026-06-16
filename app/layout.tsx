@@ -3,6 +3,7 @@ import { IBM_Plex_Sans, IBM_Plex_Mono, Bebas_Neue } from "next/font/google";
 import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
 import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
 import { BetaBanner } from "@/components/BetaBanner";
+import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 import { ToastProvider } from "@/components/ToastProvider";
 import { MotionConfigProvider } from "@/components/MotionConfig";
 import { CookieBanner } from "@/components/CookieBanner";
@@ -75,6 +76,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         suppressHydrationWarning
       >
         <MotionConfigProvider>
+          <ImpersonationBanner />
           <BetaBanner />
           {children}
         </MotionConfigProvider>

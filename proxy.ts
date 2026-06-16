@@ -32,6 +32,20 @@ export async function proxy(request: NextRequest) {
   if (!isAdmin) return response;
 
   const url = request.nextUrl;
+
+  // While an admin is impersonating, render the target portal in-place on
+  // the admin host instead of rewriting to /platform. Cookie *presence* is
+  // only a routing hint — the actual identity swap is decided by the
+  // signature-verifying resolver (lib/impersonation-server), since the HMAC
+  // secret isn't available in the Edge runtime. "/" is included so the
+  // admin-host root doesn't loop (app/page.tsx routes the user onward).
+  if (request.cookies.get("bsync_imp")?.value) {
+    const p = url.pathname;
+    const impPassThrough =
+      p === "/" ||
+      ["/team", "/dashboard", "/onboarding"].some((x) => p === x || p.startsWith(x + "/"));
+    if (impPassThrough) return response;
+  }
   const passThrough =
     PASS_THROUGH_PREFIXES.some(
       (p) => url.pathname === p || url.pathname.startsWith(p + "/"),

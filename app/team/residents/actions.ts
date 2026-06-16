@@ -8,6 +8,8 @@ import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
 import { sendEmail, sendEmailFireAndForget, welcomeEmail } from "@/lib/email";
 import { logAuditFireAndForget } from "@/lib/audit";
+import { can } from "@/lib/permissions";
+import { impersonationWriteGuard } from "@/lib/impersonation-server";
 
 // Server-side Supabase client with the SERVICE_ROLE key — required for
 // auth.admin.createUser. Never expose this client to the browser.
@@ -36,13 +38,14 @@ type Result =
   | { ok: true; email: string; password: string | null; message: string }
   | { ok: false; error: string };
 
-const ALLOWED_ROLES = ["building_manager", "facility_manager"];
-
 export async function addResident(_prev: unknown, formData: FormData): Promise<Result> {
   const session = await requireTeam();
-  if (!ALLOWED_ROLES.includes(session.appUser.role)) {
+  if (!can(session.appUser, "resident.manage")) {
     return { ok: false, error: "Only Building Managers and Facility Managers can add residents." };
   }
+  // Creates a real Supabase auth user + sends credentials — never while impersonating.
+  const impBlock = await impersonationWriteGuard({ irreversible: true });
+  if (impBlock) return { ok: false, error: impBlock };
   if (!session.appUser.buildingId) {
     return { ok: false, error: "Your account is not linked to a building." };
   }
@@ -172,9 +175,11 @@ type LeaseResult = { ok: true; leaseId: string } | { ok: false; error: string };
 // pre-fill from the latest lease).
 export async function addLease(_prev: unknown, formData: FormData): Promise<LeaseResult> {
   const session = await requireTeam();
-  if (!ALLOWED_ROLES.includes(session.appUser.role)) {
+  if (!can(session.appUser, "resident.manage")) {
     return { ok: false, error: "Only Building Managers and Facility Managers can record leases." };
   }
+  const impBlock = await impersonationWriteGuard();
+  if (impBlock) return { ok: false, error: impBlock };
   if (!session.appUser.buildingId) {
     return { ok: false, error: "Your account is not linked to a building." };
   }
@@ -256,9 +261,11 @@ const ArchiveLeaseBody = z.object({
 
 export async function archiveLease(_prev: unknown, formData: FormData): Promise<{ ok: true } | { ok: false; error: string }> {
   const session = await requireTeam();
-  if (!ALLOWED_ROLES.includes(session.appUser.role)) {
+  if (!can(session.appUser, "resident.manage")) {
     return { ok: false, error: "Only Building Managers and Facility Managers can end leases." };
   }
+  const impBlock = await impersonationWriteGuard();
+  if (impBlock) return { ok: false, error: impBlock };
   if (!session.appUser.buildingId) {
     return { ok: false, error: "Your account is not linked to a building." };
   }
@@ -312,9 +319,12 @@ type BulkResult =
 
 export async function bulkAddResidents(_prev: unknown, formData: FormData): Promise<BulkResult> {
   const session = await requireTeam();
-  if (!ALLOWED_ROLES.includes(session.appUser.role)) {
+  if (!can(session.appUser, "resident.manage")) {
     return { ok: false, error: "Only Building Managers and Facility Managers can bulk-onboard residents." };
   }
+  // Creates real Supabase auth users + sends credentials — never while impersonating.
+  const impBlock = await impersonationWriteGuard({ irreversible: true });
+  if (impBlock) return { ok: false, error: impBlock };
   if (!session.appUser.buildingId) {
     return { ok: false, error: "Your account is not linked to a building." };
   }

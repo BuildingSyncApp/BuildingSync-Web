@@ -6,10 +6,11 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
 import { logAuditFireAndForget } from "@/lib/audit";
+import { can } from "@/lib/permissions";
+import { impersonationWriteGuard } from "@/lib/impersonation-server";
 
 const ALLOWED_MIME = new Set(["application/pdf", "image/png", "image/jpeg", "image/webp"]);
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
-const ALLOWED_ROLES = ["building_manager", "facility_manager"];
 
 const Body = z.object({
   title: z.string().trim().min(1).max(200),
@@ -32,9 +33,11 @@ function adminSupabase() {
 
 export async function uploadDocument(_prev: unknown, formData: FormData): Promise<Result> {
   const session = await requireTeam();
-  if (!ALLOWED_ROLES.includes(session.appUser.role)) {
+  if (!can(session.appUser, "document.manage")) {
     return { ok: false, error: "Only Building Managers and Facility Managers can upload documents." };
   }
+  const impBlock = await impersonationWriteGuard();
+  if (impBlock) return { ok: false, error: impBlock };
   if (!session.appUser.buildingId) {
     return { ok: false, error: "Your account is not linked to a building." };
   }
@@ -114,9 +117,11 @@ export async function uploadDocument(_prev: unknown, formData: FormData): Promis
 
 export async function deleteDocument(documentId: string): Promise<Result> {
   const session = await requireTeam();
-  if (!ALLOWED_ROLES.includes(session.appUser.role)) {
+  if (!can(session.appUser, "document.manage")) {
     return { ok: false, error: "Only Building Managers and Facility Managers can remove documents." };
   }
+  const impBlock = await impersonationWriteGuard();
+  if (impBlock) return { ok: false, error: impBlock };
   const doc = await prisma.document.findUnique({ where: { id: documentId } });
   if (!doc) return { ok: false, error: "Document not found." };
   if (doc.buildingId !== session.appUser.buildingId) {

@@ -1,9 +1,8 @@
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
+import { can } from "@/lib/permissions";
 import { AddUnitForm } from "./AddUnitForm";
 import { BulkAddUnitsForm } from "./BulkAddUnitsForm";
-
-const CAN_MANAGE = ["building_manager", "facility_manager"];
 
 export default async function TeamUnitsPage() {
   const { appUser } = await requireTeam();
@@ -25,7 +24,7 @@ export default async function TeamUnitsPage() {
     },
   });
 
-  const canManage = CAN_MANAGE.includes(appUser.role);
+  const canManage = can(appUser, "unit.manage");
   const occupied = units.filter((u) => u._count.users > 0).length;
 
   return (

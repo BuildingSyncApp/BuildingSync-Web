@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
 import { logAuditFireAndForget } from "@/lib/audit";
+import { can } from "@/lib/permissions";
 
 // Building-scoped Communications log export. Pulls every comms event
 // in a date window and emits as CSV: announcements (broadcasts), work-
@@ -48,7 +49,7 @@ function rowsToCsv(rows: Row[]): string {
 
 export async function GET(request: Request) {
   const { authUser, appUser } = await requireTeam();
-  if (appUser.role !== "building_manager") {
+  if (!can(appUser, "communications.export")) {
     return NextResponse.json({ error: "Only the Building Manager can export communications." }, { status: 403 });
   }
   if (!appUser.buildingId) {
