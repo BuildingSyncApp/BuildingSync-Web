@@ -23,12 +23,28 @@ jobs:
         run: npm install --no-audit --no-fund
 
       # Bundles prisma generate + tsc --noEmit. Devs run `npm run verify` before
-      # pushing; CI runs the same. ESLint is intentionally not in this job —
-      # the config now loads cleanly (eslint-config-next's native flat config,
-      # no FlatCompat) but the codebase has a backlog of react-hooks rule
-      # violations to clean up before lint can gate merges.
-      - name: Verify
+      # pushing; CI runs the same.
+      - name: Verify (prisma generate + typecheck)
         run: npm run verify
+
+      # ESLint now gates merges: the react-hooks backlog has been cleared and the
+      # remaining over-strict React Compiler rules (set-state-in-effect, purity,
+      # immutability, exhaustive-deps) are downgraded to warnings in
+      # eslint.config.mjs. `npm run lint` therefore exits 0 on a clean tree;
+      # warnings stay visible without blocking. Bump to `lint:strict`
+      # (--max-warnings=0) once the warning backlog is also burned down.
+      - name: Lint
+        run: npm run lint
+
+      # The production build is the definitive "will it ship" check. Without this
+      # step a build-breaking change could merge green (typecheck alone misses
+      # bundler/route/server-component failures). The build is env-safe — every
+      # process.env.X! read lives inside request-time server actions, not at
+      # module top level — so it compiles without secrets in CI.
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
 
       # Informational only — Dependabot opens PRs for fixes, so don't block CI
       # on transitive vulns. --omit=dev skips devDependencies which often have

@@ -3,14 +3,19 @@
   "version": "0.2.0",
   "private": true,
   "description": "BuildingSync — production R1 (Vercel + Supabase + Stripe). Resident/Tenant + admin (BM/FM/Concierge).",
+  "engines": {
+    "node": ">=20 <23"
+  },
   "scripts": {
     "postinstall": "prisma generate || true",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "lint:strict": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "verify": "prisma generate && npm run typecheck",
+    "ci": "prisma generate && npm run lint && npm run typecheck && npm run build",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
