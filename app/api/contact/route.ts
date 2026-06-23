@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { sendEmail } from "@/lib/email";
+import { prisma } from "@/lib/prisma";
 
 const TO = process.env.CONTACT_INBOX || "info@buildingsync.app";
 
@@ -46,6 +48,31 @@ export async function POST(request: NextRequest) {
   const { name, email, topic, message } = parsed.data;
   const subject = `[Contact · ${TOPIC_LABEL[topic]}] ${name}`;
 
+  // Persist the lead FIRST, before attempting email. Previously the route
+  // only emailed — and sendEmail() returns void even when RESEND_API_KEY is
+  // missing or Resend errors, so a misconfiguration silently dropped real
+  // inquiries while still telling the visitor "thanks". Writing to Postgres
+  // first guarantees the lead is recoverable from /platform regardless of
+  // email outcome. If the DB write itself fails we surface a 500 so the
+  // visitor can retry rather than think they got through.
+  const submissionId = randomUUID();
+  try {
+    await prisma.contactSubmission.create({
+      data: {
+        id: submissionId,
+        name,
+        email,
+        topic,
+        message,
+        country: request.headers.get("cf-ipcountry") || request.headers.get("x-vercel-ip-country") || null,
+        userAgent: request.headers.get("user-agent")?.slice(0, 500) || null,
+      },
+    });
+  } catch (err) {
+    console.error("[contact] failed to persist submission", err);
+    return NextResponse.json({ error: "store_failed" }, { status: 500 });
+  }
+
   const escape = (s: string) =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -61,16 +88,20 @@ From: ${name} <${email}>
 
 ${message}`;
 
+  // Now attempt the notification email. The lead is already saved, so an
+  // email failure must NOT fail the request — we record the outcome on the
+  // row instead, leaving emailedAt null + an emailError for ops follow-up.
   try {
-    await sendEmail({
-      to: TO,
-      subject,
-      html,
-      text,
-    });
+    await sendEmail({ to: TO, subject, html, text });
+    await prisma.contactSubmission
+      .update({ where: { id: submissionId }, data: { emailedAt: new Date() } })
+      .catch((err) => console.error("[contact] failed to mark emailedAt", err));
   } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
     console.error("[contact] sendEmail failed", err);
-    return NextResponse.json({ error: "send_failed" }, { status: 500 });
+    await prisma.contactSubmission
+      .update({ where: { id: submissionId }, data: { emailError: errorMessage.slice(0, 500) } })
+      .catch((e) => console.error("[contact] failed to record emailError", e));
   }
 
   return NextResponse.json({ ok: true }, { status: 200 });

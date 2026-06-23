@@ -109,6 +109,10 @@ export function LocationPicker({
     });
 
     mapRef.current = map;
+    // Init runs once when the Leaflet script is ready. placePin/reverseGeocode
+    // are stable component functions and value.* is read only for the initial
+    // center; adding them would re-initialise the map on every change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scriptReady]);
 
   // When the parent's lat/lng changes (e.g. from address geocode),
@@ -128,6 +132,9 @@ export function LocationPicker({
       });
     }
     mapRef.current.setView(pos, PINNED_ZOOM);
+    // Only react to external lat/lng changes; reverseGeocode is a stable
+    // component function used inside the drag handler.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value.latitude, value.longitude]);
 
   function placePin(lat: number, lng: number) {
