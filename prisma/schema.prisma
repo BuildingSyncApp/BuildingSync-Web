@@ -747,3 +747,29 @@ model Notice {
   @@index([leaseId])
   @@index([tenantUserId])
 }
+
+// Inbound contact / pilot-interest submissions from the public site
+// (/contact). Persisted FIRST, then emailed — so a missing RESEND_API_KEY
+// or a Resend outage can never silently drop a lead. The platform admin
+// can review these even if no email arrived. `emailedAt` records whether
+// the notification email actually went out; null = needs follow-up.
+model ContactSubmission {
+  id         String    @id
+  name       String
+  email      String
+  topic      String    // pilot | enterprise | support | press | other
+  message    String
+  // Light triage / provenance metadata. No tracking cookies — just what
+  // the request already carries.
+  country    String?   // from CF-IPCountry / x-vercel-ip-country header
+  userAgent  String?
+  // Email-delivery outcome. Set when the notification email succeeds.
+  emailedAt  DateTime?
+  emailError String?   // last send error, if any (for ops follow-up)
+  // Simple workflow so the team can mark leads handled.
+  status     String    @default("new") // new | contacted | closed | spam
+  createdAt  DateTime  @default(now())
+
+  @@index([status, createdAt])
+  @@index([email])
+}
