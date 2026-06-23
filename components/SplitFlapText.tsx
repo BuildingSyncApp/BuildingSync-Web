@@ -150,21 +150,27 @@ function SplitFlapTextInner({ text, className = "", speed = 50 }: SplitFlapTextP
   }, [])
 
   return (
+    // Expose the word to assistive tech as a single labelled image; the
+    // per-character split-flap cells are decorative animation and are hidden
+    // from screen readers so they don't read scrambled mid-animation glyphs.
     <div
+      role="img"
+      aria-label={text}
       className={`inline-flex gap-[0.08em] items-center cursor-pointer ${className}`}
       onMouseEnter={handleMouseEnter}
       style={{ perspective: "1000px" }}
     >
       {chars.map((char, index) => (
-        <SplitFlapChar
-          key={index}
-          char={char.toUpperCase()}
-          index={index}
-          animationKey={animationKey}
-          skipEntrance={hasInitialized}
-          speed={speed}
-          playClick={audio?.playClick}
-        />
+        <span aria-hidden="true" className="contents" key={index}>
+          <SplitFlapChar
+            char={char.toUpperCase()}
+            index={index}
+            animationKey={animationKey}
+            skipEntrance={hasInitialized}
+            speed={speed}
+            playClick={audio?.playClick}
+          />
+        </span>
       ))}
     </div>
   )
