@@ -11,7 +11,7 @@ import { Wordmark } from "@/components/ui";
 export const metadata: Metadata = {
   title: "About BuildingSync — Why we built this",
   description:
-    "BuildingSync is a residential operations platform built by Ankur Sinha (Node2.io). Why it exists, what we believe, what we won't do.",
+    "BuildingSync is a residential operations platform built by Shweta Sharma (Node2.io). Why it exists, what we believe, what we won't do.",
 };
 
 export default function AboutPage() {
@@ -109,8 +109,8 @@ export default function AboutPage() {
           <h2 className="text-xl font-semibold tracking-tight">The team</h2>
           <p className="mt-4 text-sm leading-relaxed">
             BuildingSync is built by{" "}
-            <a href="https://www.linkedin.com/in/sinha-ankur/" target="_blank" rel="noopener" className="text-accent hover:underline">
-              Ankur Sinha
+            <a href="https://www.linkedin.com/in/shwetasharma97/" target="_blank" rel="noopener" className="text-accent hover:underline">
+              Shweta Sharma
             </a>
             {" "}as a service of{" "}
             <a href="https://www.linkedin.com/company/node2-io/" target="_blank" rel="noopener" className="text-accent hover:underline">

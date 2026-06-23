@@ -84,7 +84,7 @@ If you'd rather just kick the tires solo, the 90-day free pilot signup is here: 
     title: "Warm intro — when someone offers to introduce you",
     when: "Forward this to the introducer to use as the body of their intro email.",
     subject: "(introducer fills this in)",
-    body: `Hi {{Mutual contact}}, meet {{Founder name}} — he's the founder of BuildingSync, an operations platform for residential buildings (incidents, maintenance, communications, RTA notices, the works). They're running a free 90-day pilot for the first 5 buildings and I thought you'd want to know about it given {{specific reason}}.
+    body: `Hi {{Mutual contact}}, meet {{Founder name}} — they're the founder of BuildingSync, an operations platform for residential buildings (incidents, maintenance, communications, RTA notices, the works). They're running a free 90-day pilot for the first 5 buildings and I thought you'd want to know about it given {{specific reason}}.
 
 {{Founder name}} — over to you.
 
