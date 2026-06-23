@@ -9,6 +9,8 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { SplitFlapText, SplitFlapAudioProvider, SplitFlapMuteToggle } from "@/components/SplitFlapText";
 import { ProductHighlights } from "@/components/ProductHighlights";
 import { MotionReveal, MotionRevealStagger, MotionRevealItem } from "@/components/MotionReveal";
+import { PricingCurrencyProvider, Price, CurrencyNote } from "./PricingCurrency";
+import { currencyForCountry } from "@/lib/pricing";
 
 const ADMIN_HOST = process.env.ADMIN_HOST || "admin.buildingsync.app";
 
@@ -91,7 +93,7 @@ export default async function Home({ searchParams }: { searchParams: SP }) {
         <Pathways />
         <ProductHighlights />
         <Principles />
-        <Pricing />
+        <Pricing visitorCountry={visitorCountry} />
         <Faq />
         <FinalCta />
         <SiteFooter />
@@ -382,7 +384,7 @@ function Principles() {
 const TIERS = [
   {
     name: "Essential",
-    price: "$2.50",
+    baseUsd: 2.5,
     period: "/unit/month",
     description: "Per-unit pricing with role-based onboarding.",
     features: [
@@ -402,7 +404,7 @@ const TIERS = [
   },
   {
     name: "Professional",
-    price: "$4.50",
+    baseUsd: 4.5,
     period: "/unit/month",
     description: "For property management companies.",
     features: [
@@ -420,7 +422,7 @@ const TIERS = [
   },
   {
     name: "Enterprise",
-    price: "Custom",
+    baseUsd: null,
     period: "",
     description: "For REITs, large condo corps, multi-property operators.",
     features: [
@@ -440,7 +442,7 @@ const TIERS = [
   },
   {
     name: "Government",
-    price: "Custom",
+    baseUsd: null,
     period: "",
     description: "For municipal, provincial, federal, and Crown housing.",
     features: [
@@ -460,7 +462,8 @@ const TIERS = [
   },
 ];
 
-function Pricing() {
+function Pricing({ visitorCountry }: { visitorCountry: string | null }) {
+  const initialCurrency = currencyForCountry(visitorCountry);
   return (
     <section id="pricing" className="relative max-w-7xl mx-auto px-6 py-16 md:py-24 border-t border-border">
       <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-accent">05 / Plans</p>
@@ -473,6 +476,8 @@ function Pricing() {
       <p className="mt-3 max-w-3xl font-mono text-xs md:text-sm text-muted-foreground leading-relaxed">
         Per-unit pricing. No setup fees. Cancel anytime.
       </p>
+
+      <PricingCurrencyProvider initial={initialCurrency}>
 
       <div className="mt-6 bg-accent/10 border border-accent/40 rounded-lg p-4 md:p-5">
         <div className="flex items-start gap-3 flex-wrap">
@@ -520,7 +525,9 @@ function Pricing() {
               )}
             </div>
             <div className="mt-4 flex items-baseline gap-1">
-              <span className="text-4xl font-extrabold text-foreground">{t.price}</span>
+              <span className="text-4xl font-extrabold text-foreground">
+                <Price baseUsd={t.baseUsd} />
+              </span>
               {t.period && <span className="text-sm text-muted-foreground">{t.period}</span>}
             </div>
             <p className="mt-3 text-sm text-muted-foreground">{t.description}</p>
@@ -554,9 +561,10 @@ function Pricing() {
         ))}
       </div>
 
-      <p className="mt-6 text-xs text-muted-foreground">
-        All prices in USD. Stripe processing fees absorbed by the property manager — never charged to residents (Ontario RTA s. 134 compliant).
-      </p>
+        <p className="mt-6 text-xs text-muted-foreground">
+          <CurrencyNote />
+        </p>
+      </PricingCurrencyProvider>
     </section>
   );
 }
