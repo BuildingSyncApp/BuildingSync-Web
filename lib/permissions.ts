@@ -36,6 +36,7 @@ export type Capability =
   | "workorder.manage" // change work-order status / assign
   | "workorder.triage" // run the AI triage summary
   // Building administration (BM-only management surfaces)
+  | "policy.manage" // author / publish / archive building policies (AI-assisted)
   | "notice.manage" // create / serve / withdraw RTA legal notices
   | "license.manage" // validate license key, send heartbeat
   | "building.create" // BM self-serve building creation
@@ -72,6 +73,7 @@ const BUILDING_MANAGER_ONLY: Capability[] = [
   "announcement.delete",
   "announcement.draft_ai",
   // BM-only building administration
+  "policy.manage",
   "notice.manage",
   "license.manage",
   "building.create",
@@ -124,6 +126,7 @@ export const CAPABILITY_LABELS: Record<Capability, string> = {
   "delivery.manage": "Log & release packages",
   "workorder.manage": "Manage work orders",
   "workorder.triage": "AI work-order triage",
+  "policy.manage": "Manage building policies",
   "notice.manage": "Manage legal notices",
   "license.manage": "Manage license",
   "building.create": "Create a building",

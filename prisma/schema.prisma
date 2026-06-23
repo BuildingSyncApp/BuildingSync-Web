@@ -243,6 +243,7 @@ model Building {
   license       License?
   notices       Notice[]
   aiUsage       AiUsage[]
+  policies      Policy[]
 }
 
 model Unit {
@@ -803,4 +804,31 @@ model AiUsage {
 
   @@index([buildingId, createdAt])
   @@index([buildingId, feature])
+}
+
+// Per-building policy. Each building authors and controls its own policies
+// (pet policy, noise/quiet hours, amenity rules, smoking, short-term-rental,
+// parking, etc.). AI assists with drafting/refining (metered via AiUsage,
+// feature "policy_assist") but the building's team owns the final text and
+// the publish decision. Versioning is intentionally simple — edits update in
+// place; the AuditLog captures who changed what, and AiUsage records any
+// AI assistance, so there's an evidence trail without a full revision table.
+model Policy {
+  id          String    @id
+  buildingId  String
+  title       String
+  category    String    @default("general") // pets | noise | amenities | parking | smoking | short_term_rental | safety | general
+  body        String
+  status      String    @default("draft")   // draft | published | archived
+  // Provenance: was AI used to draft/refine this, and by whom.
+  aiAssisted  Boolean   @default(false)
+  createdById String
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  @@index([buildingId, status])
+  @@index([buildingId, category])
 }
