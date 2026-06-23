@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { NavSection } from "@/components/MobileMenu";
 
-// Two-level portal nav matching the R&D Buildsync header pattern:
+// Two-level portal nav matching the R&D BuildingSync header pattern:
 // L1 is a row of pill tabs (section labels — Operations, People,
 // Property, Compliance), L2 is a contextual row of pill tabs below
 // it showing the active section's children, plus a breadcrumb
