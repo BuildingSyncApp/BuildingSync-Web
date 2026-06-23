@@ -41,6 +41,7 @@ export default async function TeamLayout({ children }: { children: React.ReactNo
 
   const compliance: MobileNavItem[] = [];
   if (isBM) {
+    compliance.push({ href: "/team/policies", label: "Policies" });
     compliance.push({ href: "/team/legal", label: "Legal" });
     compliance.push({ href: "/team/access-requests", label: "Access" });
     compliance.push({ href: "/team/audit-log", label: "Audit log" });
