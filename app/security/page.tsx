@@ -82,28 +82,29 @@ export default function SecurityPage() {
           {/* ─── Vulnerability surface ─────────────────────── */}
           <Section eyebrow="02 · Vulnerability surface" title="What an attacker would target">
             <Card title="Authentication">
-              Supabase Auth (GoTrue) handles password storage (bcrypt),
-              session tokens (JWT), and email confirmation. Password reset
-              via emailed time-limited token. No SMS-based auth (avoids
-              SIM-swap class). MFA is on the roadmap; enabled in Supabase
-              today for accounts that opt in.
+              First-party auth: passwords are hashed with argon2id (the
+              OWASP-recommended memory-hard algorithm); sessions are
+              short-lived HMAC-signed tokens. Password reset via emailed
+              time-limited token. No SMS-based auth (avoids SIM-swap
+              class). MFA is on the roadmap.
             </Card>
             <Card title="Data at rest">
-              All data lives in Supabase Postgres in the ca-central
-              (Toronto) region by default. Disk encryption is on by
-              default at the provider level. Row-level security policies
-              are applied; cross-tenant access requires explicit grants.
+              All data lives in managed Postgres in the ca-central
+              (Canada Central) region. Disk encryption is on by default
+              at the provider level. Row-level security policies are
+              applied; cross-tenant access requires explicit grants.
             </Card>
             <Card title="Data in transit">
               HTTPS only (HSTS enforced). Public DB ports are closed —
               the only path to data is through the BuildingSync API on
-              the public web. The pooled connection uses pgbouncer in
-              transaction mode; the direct connection is reserved for
-              migrations.
+              the public web. The pooled connection uses a connection
+              pooler in transaction mode; the direct connection is
+              reserved for migrations.
             </Card>
             <Card title="Third-party trust boundary">
-              We delegate to: Supabase (auth + DB + storage), Vercel (hosting),
-              Stripe (payments), Resend (transactional email), Anthropic
+              We delegate to: our managed Postgres provider (DB),
+              Cloudflare R2 (file storage), Vercel (hosting), Stripe
+              (payments), Resend (transactional email), Anthropic
               (AI drafting — optional). Each has its own security posture
               and SOC 2 / equivalent attestation. We don&apos;t pull
               dependencies from random third parties — npm deps are
@@ -153,8 +154,8 @@ export default function SecurityPage() {
             <Card title="Cloud SKU">
               <ul className="space-y-1.5 list-disc pl-5">
                 <li><strong>Postgres:</strong> daily snapshots retained 7 days on Pro tier, 14 days on Team tier, 30 days on Enterprise</li>
-                <li><strong>Point-in-time recovery:</strong> 5-minute granularity, last 7 days (Supabase Pro+)</li>
-                <li><strong>File storage:</strong> Supabase Storage replicates within region; off-region replication available on Enterprise</li>
+                <li><strong>Point-in-time recovery:</strong> 5-minute granularity, last 7 days (managed Postgres)</li>
+                <li><strong>File storage:</strong> Cloudflare R2 stores documents in the selected region; versioning/replication available per bucket policy</li>
                 <li><strong>Audit log:</strong> append-only Postgres table; covered by the same backup schedule</li>
                 <li><strong>Customer-initiated export:</strong> per-user data export at /dashboard/account (PIPEDA Art. 4.9)</li>
               </ul>
@@ -200,9 +201,9 @@ export default function SecurityPage() {
           {/* ─── Incident response ─────────────────────────── */}
           <Section eyebrow="06 · Incident response" title="What we do when something goes wrong">
             <Card title="Detection">
-              Vercel + Supabase send paging alerts to the on-call engineer
-              for hard failures (5xx rates, DB connectivity). Customer-
-              reported incidents arrive at <a href="mailto:info@buildingsync.app" className="text-accent hover:underline">info@buildingsync.app</a>.
+              Vercel + our database provider send paging alerts to the
+              on-call engineer for hard failures (5xx rates, DB
+              connectivity). Customer-reported incidents arrive at <a href="mailto:info@buildingsync.app" className="text-accent hover:underline">info@buildingsync.app</a>.
             </Card>
             <Card title="Communication">
               Active incidents acknowledged within the SLA window. Status
@@ -237,9 +238,9 @@ export default function SecurityPage() {
               Outages are communicated by email. A public status page is
               R2.
             </Card>
-            <Card title="MFA is opt-in, not required">
-              Building Managers can enable MFA today via Supabase Auth.
-              Mandatory MFA for BM accounts ships in R2.
+            <Card title="MFA is on the roadmap">
+              Multi-factor authentication for Building Manager accounts is
+              planned; mandatory MFA for BM accounts ships in R2.
             </Card>
           </Section>
 

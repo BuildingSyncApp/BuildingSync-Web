@@ -1,10 +1,11 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
+import { putObject, deleteObject, getDownloadUrl } from "@/lib/storage";
 import { logAuditFireAndForget } from "@/lib/audit";
 import { can } from "@/lib/permissions";
 import { impersonationWriteGuard } from "@/lib/impersonation-server";
@@ -22,14 +23,6 @@ const Body = z.object({
 type Result =
   | { ok: true; documentId: string }
   | { ok: false; error: string };
-
-function adminSupabase() {
-  return createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } },
-  );
-}
 
 export async function uploadDocument(_prev: unknown, formData: FormData): Promise<Result> {
   const session = await requireTeam();
@@ -66,17 +59,15 @@ export async function uploadDocument(_prev: unknown, formData: FormData): Promis
   // We generate the document ID up front so we can use it as the storage
   // path prefix — keeps storage and DB rows in lockstep even if either
   // half fails partway through.
-  const cuid = (await import("crypto")).randomUUID();
+  const cuid = randomUUID();
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80);
   const storagePath = `${session.appUser.buildingId}/${cuid}/${safeName}`;
 
-  const supabase = adminSupabase();
   const buffer = Buffer.from(await file.arrayBuffer());
-  const { error: uploadError } = await supabase.storage
-    .from("documents")
-    .upload(storagePath, buffer, { contentType: file.type, upsert: false });
-  if (uploadError) {
-    return { ok: false, error: `Upload failed: ${uploadError.message}` };
+  try {
+    await putObject(storagePath, buffer, file.type);
+  } catch (err) {
+    return { ok: false, error: `Upload failed: ${err instanceof Error ? err.message : "storage error"}` };
   }
 
   try {
@@ -109,8 +100,8 @@ export async function uploadDocument(_prev: unknown, formData: FormData): Promis
     revalidatePath("/dashboard/documents");
     return { ok: true, documentId: doc.id };
   } catch (err) {
-    // Prisma write failed after upload — clean up the orphaned file.
-    await supabase.storage.from("documents").remove([storagePath]).catch(() => {});
+    // Prisma write failed after upload — clean up the orphaned object.
+    await deleteObject(storagePath).catch(() => {});
     return { ok: false, error: err instanceof Error ? err.message : "Database write failed." };
   }
 }
@@ -166,9 +157,10 @@ export async function getDocumentDownloadUrl(documentId: string): Promise<{ ok: 
     return { ok: false, error: "Forbidden." };
   }
 
-  const supabase = adminSupabase();
-  const { data, error } = await supabase.storage.from("documents").createSignedUrl(doc.storagePath, 60 * 60);
-  if (error || !data?.signedUrl) {
+  let url: string;
+  try {
+    url = await getDownloadUrl(doc.storagePath, 60 * 60);
+  } catch {
     return { ok: false, error: "Could not generate download link." };
   }
 
@@ -181,5 +173,5 @@ export async function getDocumentDownloadUrl(documentId: string): Promise<{ ok: 
     buildingId: doc.buildingId,
   });
 
-  return { ok: true, url: data.signedUrl };
+  return { ok: true, url };
 }

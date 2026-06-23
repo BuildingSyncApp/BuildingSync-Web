@@ -86,10 +86,22 @@ What changed:
 Required new secrets: **`AUTH_SECRET`** and **`IMPERSONATION_SIGNING_SECRET`**
 (see §4 and `.env.example`).
 
-> ⚠️ Still on Supabase: **document file storage** (`app/team/documents`,
-> Supabase Storage). That's a separate, deferred workstream — migrate to
-> Vercel Blob / R2 in its own PR, then the `@supabase/*` dependency and the
-> remaining Supabase env vars can go.
+> ✅ Storage is also off Supabase: **document file storage** now uses
+> **Cloudflare R2** (`lib/storage.ts`). `@supabase/*` deps are removed — the
+> app no longer touches Supabase at all. See §5b for R2 setup.
+
+## 5b. Object storage (Cloudflare R2)
+Document uploads/downloads use R2 (S3-compatible, free egress, region-
+selectable). One-time setup in the Cloudflare dashboard:
+1. **R2 → Create bucket** (e.g. `buildingsync-documents`). Pick the region
+   for residency.
+2. **R2 → Manage R2 API Tokens → Create** (Object Read & Write, scoped to
+   the bucket). Copy the **Access Key ID** + **Secret Access Key**, and note
+   your **Account ID**.
+3. Set in `.env` (local) and **Vercel → Production**:
+   `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`.
+4. Smoke-test: upload a document in `/team/documents`, download it, delete
+   it. Confirm the object lands in the R2 bucket.
 
 ## 6. Smoke test
 - `npm run build` locally against Neon `.env` → green.
@@ -104,12 +116,15 @@ Required new secrets: **`AUTH_SECRET`** and **`IMPERSONATION_SIGNING_SECRET`**
   an AI feature (`AiUsage`), create a policy (`Policy`). Confirm in Neon.
 
 ## 7. Decommission Supabase
-Auth is already off Supabase (§5). To finish:
-- **Now:** remove the Supabase **auth** env vars from Vercel + local
-  (`SUPABASE_SERVICE_ROLE_KEY` is no longer used by auth).
-- **After storage migration:** remove `@supabase/*` deps, the
-  `app/team/documents` Supabase Storage code, the remaining Supabase env
-  vars, then archive the Supabase project.
+**Done in code:** auth (§5) and storage (§5b) are both off Supabase, and the
+`@supabase/*` dependencies + `utils/supabase/*` are removed. The app no
+longer references Supabase anywhere.
+
+To finish on the infra side:
+- Remove all `SUPABASE_*` / `NEXT_PUBLIC_SUPABASE_*` env vars from Vercel +
+  local `.env`.
+- Archive (or delete) the Supabase project once you've confirmed nothing
+  external still points at it.
 
 ## Rollback
 N/A in any meaningful sense — Supabase held only throwaway test data, so there

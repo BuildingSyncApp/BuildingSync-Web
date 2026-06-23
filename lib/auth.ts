@@ -5,9 +5,8 @@ import { readSession } from "@/lib/session";
 import { resolveImpersonation } from "@/lib/impersonation-server";
 import type { ImpersonationSession } from "@/lib/impersonation";
 
-// Minimal authenticated-identity shape. Replaces the Supabase `User` type
-// that used to flow out of here — callsites only ever read `.id` / `.email`,
-// so this keeps them unchanged while removing the @supabase/* dependency.
+// Minimal authenticated-identity shape. Callsites only ever read `.id` /
+// `.email`, so a tiny local type is all that flows out of the auth layer.
 export type SessionUser = { id: string; email: string };
 
 // Reads our own signed session cookie (lib/session), then loads the app-side
