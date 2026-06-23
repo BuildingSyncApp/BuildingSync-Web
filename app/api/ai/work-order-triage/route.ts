@@ -6,6 +6,9 @@ import { prisma } from "@/lib/prisma";
 import { getAnthropic, isAnthropicConfigured } from "@/lib/anthropic";
 import { can } from "@/lib/permissions";
 import { impersonationWriteGuard } from "@/lib/impersonation-server";
+import { recordAiUsage } from "@/lib/ai-metering";
+
+const AI_MODEL = "claude-sonnet-4-6";
 
 // Triage summary for the BM/FM work-order queue. Takes the current
 // open + in-progress work orders, returns a one-line summary the BM
@@ -141,7 +144,7 @@ export async function POST() {
 
     const client = getAnthropic();
     const response = await client.messages.parse({
-      model: "claude-sonnet-4-6",
+      model: AI_MODEL,
       max_tokens: 512,
       system: [
         { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
@@ -156,6 +159,21 @@ export async function POST() {
         { status: 422 },
       );
     }
+
+    // Meter this call against the building for billing + audit. Best-effort —
+    // never blocks the response (recordAiUsage swallows its own errors).
+    await recordAiUsage({
+      buildingId: appUser.buildingId,
+      userId: appUser.id,
+      feature: "work_order_triage",
+      model: AI_MODEL,
+      usage: {
+        inputTokens: response.usage.input_tokens,
+        outputTokens: response.usage.output_tokens,
+        cacheReadTokens: response.usage.cache_read_input_tokens ?? 0,
+        cacheWriteTokens: response.usage.cache_creation_input_tokens ?? 0,
+      },
+    });
 
     return NextResponse.json({
       ok: true,

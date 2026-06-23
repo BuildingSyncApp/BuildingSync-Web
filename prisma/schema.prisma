@@ -242,6 +242,7 @@ model Building {
   deliveries    Delivery[]
   license       License?
   notices       Notice[]
+  aiUsage       AiUsage[]
 }
 
 model Unit {
@@ -772,4 +773,34 @@ model ContactSubmission {
 
   @@index([status, createdAt])
   @@index([email])
+}
+
+// Per-call AI usage ledger. One row per Claude request made on behalf of a
+// building, recording the feature, model, token counts, and computed cost.
+// This is BOTH the billing source for metered AI pricing AND an audit trail
+// of AI-assisted decisions (e.g. policy drafting, work-order triage). Append
+// only in spirit — we never edit a usage row after the fact.
+//
+// `feature` is a stable key (e.g. "work_order_triage", "draft_announcement",
+// "policy_assist") so usage can be grouped per capability tier for billing.
+// `costMicros` is the computed cost in millionths of a USD dollar (integer to
+// avoid float drift); divide by 1_000_000 for dollars. Rates live in
+// lib/ai-metering.ts and may change, so we snapshot the cost at call time.
+model AiUsage {
+  id              String   @id
+  buildingId      String
+  userId          String?  // who triggered it (null if system/cron)
+  feature         String   // capability key, e.g. "work_order_triage"
+  model           String   // e.g. "claude-sonnet-4-6"
+  inputTokens     Int      @default(0)
+  outputTokens    Int      @default(0)
+  cacheReadTokens Int      @default(0)
+  cacheWriteTokens Int     @default(0)
+  costMicros      Int      @default(0) // computed USD cost ×1e6
+  createdAt       DateTime @default(now())
+
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  @@index([buildingId, createdAt])
+  @@index([buildingId, feature])
 }
