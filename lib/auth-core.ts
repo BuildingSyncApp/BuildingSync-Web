@@ -124,9 +124,16 @@ export function verifySession(token: string | undefined | null): SessionPayload 
 
 // ── Action tokens (password reset + set-password invite) ─────────────────
 // Stateless one-shot links. The token binds the user id + email + purpose
-// and self-expires. We bind to the user's CURRENT password hash via a salt
-// so that once the password changes the link is single-use by construction
-// (the salt no longer matches) — no server-side token table needed.
+// and self-expires. We additionally bind it to a derivation of the user's
+// CURRENT stored credential digest, so once the credential changes the link
+// is single-use by construction — no server-side token table needed.
+//
+// NOTE: the value bound here is the user's *already-argon2id-hashed* stored
+// credential (the `User.password` column), never a raw/plaintext password.
+// We never hash a plaintext password with HMAC-SHA256 — plaintext passwords
+// are hashed only by `hashPassword` (argon2id) above. The binding below is a
+// keyed MAC over an opaque fragment of that strong digest, used purely to
+// invalidate the link when the credential rotates.
 export type ActionPurpose = "reset" | "invite";
 
 export type ActionPayload = {
@@ -143,21 +150,22 @@ const ACTION_TTL: Record<ActionPurpose, number> = {
   invite: 60 * 60 * 24 * 7, // 7 days — managers provision ahead of move-in
 };
 
-// `pwHashSalt` is a stable fragment of the user's current password hash
-// (or a fixed marker when no password is set yet, e.g. fresh invites).
-// Including it in the signed payload makes the link invalidate as soon as
-// the password changes, giving single-use semantics without DB state.
-function pwSalt(currentPasswordHash: string | null): string {
-  if (!currentPasswordHash) return "no-pw";
-  // Use a slice of the encoded hash; it changes whenever the password is
-  // (re)set, but never leaks the full hash into the token.
-  return currentPasswordHash.slice(-16);
+// Derive an opaque, stable binding tag from the user's stored *credential
+// digest* (the argon2id hash already in the DB) — NOT from any plaintext
+// password. The tag is a keyed MAC over a short fragment of that digest, so
+// it changes whenever the credential is rotated, giving the link single-use
+// semantics, while never embedding (or weakly re-hashing) a real password.
+// A fixed marker is used when no credential is set yet (fresh invites).
+function credentialBindingTag(storedCredentialDigest: string | null): string {
+  const fragment = storedCredentialDigest ? storedCredentialDigest.slice(-16) : "no-credential";
+  return b64urlEncode(createHmac("sha256", getSecret()).update(`bind:${fragment}`).digest());
 }
 
 export function signActionToken(input: {
   purpose: ActionPurpose;
   sub: string;
   email: string;
+  // The user's stored argon2id credential digest (User.password), or null.
   currentPasswordHash: string | null;
 }): string {
   const now = Math.floor(Date.now() / 1000);
@@ -170,8 +178,8 @@ export function signActionToken(input: {
     exp: now + ACTION_TTL[input.purpose],
   };
   const payloadB64 = b64urlEncode(Buffer.from(JSON.stringify(payload), "utf8"));
-  // Bind signature to the pw-salt by appending it to the signed material.
-  const material = `${payloadB64}.${pwSalt(input.currentPasswordHash)}`;
+  // Sign over the payload + the credential-binding tag (derived above).
+  const material = `${payloadB64}.${credentialBindingTag(input.currentPasswordHash)}`;
   return `${payloadB64}.${b64urlEncode(createHmac("sha256", getSecret()).update(material).digest())}`;
 }
 
@@ -186,7 +194,7 @@ export function verifyActionToken(
 
   let expected: Buffer;
   try {
-    const material = `${payloadB64}.${pwSalt(currentPasswordHash)}`;
+    const material = `${payloadB64}.${credentialBindingTag(currentPasswordHash)}`;
     expected = createHmac("sha256", getSecret()).update(material).digest();
   } catch {
     return null;
