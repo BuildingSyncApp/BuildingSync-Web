@@ -3,8 +3,6 @@
 -- a fresh database). Generated from prisma/schema.prisma, then RLS
 -- enablement + policies (not modeled by Prisma) appended below.
 
-◇ injected env (0) from .env.local // tip: ⌘ override existing { override: true }
-◇ injected env (0) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 
