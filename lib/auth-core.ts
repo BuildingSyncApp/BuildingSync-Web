@@ -150,15 +150,14 @@ const ACTION_TTL: Record<ActionPurpose, number> = {
   invite: 60 * 60 * 24 * 7, // 7 days — managers provision ahead of move-in
 };
 
-// Derive an opaque, stable binding tag from the user's stored *credential
-// digest* (the argon2id hash already in the DB) — NOT from any plaintext
-// password. The tag is a keyed MAC over a short fragment of that digest, so
-// it changes whenever the credential is rotated, giving the link single-use
-// semantics, while never embedding (or weakly re-hashing) a real password.
-// A fixed marker is used when no credential is set yet (fresh invites).
-function credentialBindingTag(storedCredentialDigest: string | null): string {
-  const fragment = storedCredentialDigest ? storedCredentialDigest.slice(-16) : "no-credential";
-  return b64urlEncode(createHmac("sha256", getSecret()).update(`bind:${fragment}`).digest());
+// A short, stable fragment of the user's stored *credential digest* (the
+// argon2id hash already in the DB) — NOT a plaintext password. It is included
+// as plain signed material in the token below (covered by the token's single
+// HMAC signature), so the link invalidates the moment the credential rotates,
+// without ever running its own hash over a password-derived value. A fixed
+// marker is used when no credential is set yet (fresh invites).
+function credentialBindingFragment(storedCredentialDigest: string | null): string {
+  return storedCredentialDigest ? storedCredentialDigest.slice(-16) : "no-credential";
 }
 
 export function signActionToken(input: {
@@ -179,7 +178,7 @@ export function signActionToken(input: {
   };
   const payloadB64 = b64urlEncode(Buffer.from(JSON.stringify(payload), "utf8"));
   // Sign over the payload + the credential-binding tag (derived above).
-  const material = `${payloadB64}.${credentialBindingTag(input.currentPasswordHash)}`;
+  const material = `${payloadB64}.${credentialBindingFragment(input.currentPasswordHash)}`;
   return `${payloadB64}.${b64urlEncode(createHmac("sha256", getSecret()).update(material).digest())}`;
 }
 
@@ -194,7 +193,7 @@ export function verifyActionToken(
 
   let expected: Buffer;
   try {
-    const material = `${payloadB64}.${credentialBindingTag(currentPasswordHash)}`;
+    const material = `${payloadB64}.${credentialBindingFragment(currentPasswordHash)}`;
     expected = createHmac("sha256", getSecret()).update(material).digest();
   } catch {
     return null;
