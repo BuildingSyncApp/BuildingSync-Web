@@ -232,7 +232,7 @@ function Hero({
 const PATHWAYS = [
   {
     title: "Facility Manager",
-    subtitle: "Operational uptime and SLA control",
+    subtitle: "Operational uptime and response-time control",
     bullets: ["Work orders", "Status updates", "Vendor visibility"],
   },
   {

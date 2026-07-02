@@ -177,7 +177,7 @@ export default async function TeamHome() {
     const overdueDays = Math.abs(daysFrom(now, wo.slaDeadline));
     attention.push({
       key: `wo-${wo.id}`,
-      pill: { label: "SLA breached", tone: "red" },
+      pill: { label: "Overdue", tone: "red" },
       text: `${wo.issue}${wo.unit ? ` · Unit ${wo.unit}` : ""}`,
       meta: overdueDays === 0 ? "due today" : `overdue ${overdueDays}d${wo.assignee ? "" : " · unassigned"}`,
       href: "/team/work-orders",
@@ -293,7 +293,7 @@ export default async function TeamHome() {
               hint={
                 openCount === 0
                   ? "Queue is clear"
-                  : `${urgentCount} urgent · ${overdueCount} past SLA`
+                  : `${urgentCount} urgent · ${overdueCount} overdue`
               }
               href="/team/work-orders"
             />
@@ -355,7 +355,7 @@ export default async function TeamHome() {
             <section className="lg:col-span-2">
               <div className="flex items-baseline justify-between mb-3">
                 <h2 className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
-                  Work queue · SLA order
+                  Work queue · most overdue first
                 </h2>
                 <Link href="/team/work-orders" className="text-xs text-accent hover:underline">
                   View all
@@ -394,10 +394,10 @@ export default async function TeamHome() {
                             <StatusPill
                               label={
                                 slaDays < 0
-                                  ? `SLA +${Math.abs(slaDays)}d`
+                                  ? `Overdue ${Math.abs(slaDays)}d`
                                   : slaDays === 0
-                                  ? "SLA today"
-                                  : `SLA ${slaDays}d`
+                                  ? "Due today"
+                                  : `Due ${slaDays}d`
                               }
                               tone={slaDays < 0 ? "red" : slaDays <= 1 ? "amber" : "neutral"}
                             />

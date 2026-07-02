@@ -206,7 +206,7 @@ export default function SecurityPage() {
               connectivity). Customer-reported incidents arrive at <a href="mailto:info@buildingsync.app" className="text-accent hover:underline">info@buildingsync.app</a>.
             </Card>
             <Card title="Communication">
-              Active incidents acknowledged within the SLA window. Status
+              Active incidents acknowledged within the response window contracted on paid plans. Status
               updates posted every ~30 minutes during a Sev-1. Resolution
               email to affected customers when restored. A formal public
               status page is on the R2 roadmap.

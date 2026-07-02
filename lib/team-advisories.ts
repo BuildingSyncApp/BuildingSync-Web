@@ -77,7 +77,7 @@ export async function getTeamAdvisories(appUser: TeamUser): Promise<AdvisoryItem
       id: `wo-urgent-${day}`,
       tone: "critical",
       title: `${urgentWOs} urgent work order${urgentWOs === 1 ? "" : "s"} open`,
-      body: "Urgent issues affect habitability and carry the tightest SLA.",
+      body: "Urgent issues affect habitability and carry the tightest response target.",
       href: "/team/work-orders",
       hrefLabel: "Triage now",
     });
@@ -87,8 +87,8 @@ export async function getTeamAdvisories(appUser: TeamUser): Promise<AdvisoryItem
     items.push({
       id: `wo-overdue-${day}`,
       tone: "warning",
-      title: `${overdueWOs} work order${overdueWOs === 1 ? " is" : "s are"} past the SLA deadline`,
-      body: "Overdue maintenance is the #1 driver of resident complaints and LTB filings.",
+      title: `${overdueWOs} work order${overdueWOs === 1 ? " is" : "s are"} past the response target`,
+      body: "Longest-waiting requests are listed first in the queue.",
       href: "/team/work-orders",
       hrefLabel: "View queue",
     });

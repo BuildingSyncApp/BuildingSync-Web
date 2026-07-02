@@ -72,7 +72,7 @@ export default async function TeamLayout({ children }: { children: React.ReactNo
       userRole={appUser.role}
       notifications={notifications}
     >
-      {/* Role-scoped rotating advisories (urgent WOs, SLA breaches,
+      {/* Role-scoped rotating advisories (urgent WOs, overdue work,
           pending verifications, re-verification due, …). Replaces the
           old single-purpose ReverificationBanner — that condition is
           now one advisory among the rest. */}

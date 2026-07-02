@@ -50,7 +50,7 @@ Quick intro — I'm the founder of BuildingSync, an operations platform for resi
 2. {{Specific reason why this building / company in particular — e.g. "I noticed your last AGM minutes mentioned communication challenges with residents" or "your building has the package volume that our concierge flow is built for"}}
 
 What we replace:
-• Email threads + spreadsheets for work orders → triage queue with SLA tracking
+• Email threads + spreadsheets for work orders → triage queue with response-time tracking
 • WhatsApp / paper notices for announcements → one broadcast, audience-filtered, with a CSV paper trail
 • Word-doc N4 / N5 / N12 notices → pre-filled templates with served-date tracking
 • Clipboard package log → resident push with pickup code
