@@ -21,13 +21,20 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // Date math lives here (module scope) to keep the component body pure.
 function requestDates() {
   const now = new Date();
+  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   return {
     now,
+    dayStart,
+    dayEnd: new Date(dayStart.getTime() + DAY_MS),
     monthStart: new Date(now.getFullYear(), now.getMonth(), 1),
     leaseHorizon: new Date(now.getTime() + 60 * DAY_MS),
+    staleCutoff: new Date(now.getTime() - 3 * DAY_MS),
     todayLabel: now.toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric" }),
   };
 }
+
+const fmtTime = (d: Date) =>
+  d.toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit" });
 
 function daysFrom(now: Date, date: Date): number {
   return Math.round((date.getTime() - now.getTime()) / DAY_MS);
@@ -53,7 +60,7 @@ type AttentionRow = {
 
 export default async function TeamHome() {
   const { appUser } = await requireTeam();
-  const { now, monthStart, leaseHorizon, todayLabel } = requestDates();
+  const { now, dayStart, dayEnd, monthStart, leaseHorizon, staleCutoff, todayLabel } = requestDates();
 
   const isBM = appUser.role === "building_manager";
   const isFM = appUser.role === "facility_manager";
@@ -72,6 +79,9 @@ export default async function TeamHome() {
     collectedAgg,
     chargedAgg,
     pendingPackages,
+    stalePackages,
+    frontDeskDeliveries,
+    todayBookings,
     residentCount,
     pendingVerifications,
     expiringLeases,
@@ -107,12 +117,12 @@ export default async function TeamHome() {
             },
           })
           .catch(() => []),
-        isBM || isFM
+        isBM
           ? prisma.payment
               .aggregate({ _sum: { amount: true }, where: { buildingId, paidAt: { gte: monthStart } } })
               .catch(() => ({ _sum: { amount: null } }))
           : { _sum: { amount: null } },
-        isBM || isFM
+        isBM
           ? prisma.lease
               .aggregate({
                 _sum: { rentAmountMonthly: true },
@@ -121,6 +131,40 @@ export default async function TeamHome() {
               .catch(() => ({ _sum: { rentAmountMonthly: null } }))
           : { _sum: { rentAmountMonthly: null } },
         prisma.delivery.count({ where: { buildingId, status: "pending" } }).catch(() => 0),
+        isConcierge
+          ? prisma.delivery
+              .count({ where: { buildingId, status: "pending", receivedAt: { lt: staleCutoff } } })
+              .catch(() => 0)
+          : 0,
+        isConcierge
+          ? prisma.delivery
+              .findMany({
+                where: { buildingId, status: "pending" },
+                orderBy: { receivedAt: "asc" },
+                take: 6,
+                include: {
+                  recipient: { select: { name: true, email: true, unitRel: { select: { unitNumber: true } } } },
+                },
+              })
+              .catch(() => [])
+          : [],
+        isFM
+          ? prisma.amenityBooking
+              .findMany({
+                where: {
+                  amenity: { buildingId },
+                  startTime: { gte: dayStart, lt: dayEnd },
+                  status: { in: ["pending", "confirmed"] },
+                },
+                orderBy: { startTime: "asc" },
+                take: 6,
+                include: {
+                  amenity: { select: { name: true } },
+                  user: { select: { name: true, email: true } },
+                },
+              })
+              .catch(() => [])
+          : [],
         prisma.user
           .count({ where: { buildingId, role: { in: ["resident", "tenant"] }, archivedAt: null } })
           .catch(() => 0),
@@ -166,7 +210,7 @@ export default async function TeamHome() {
           })
           .catch(() => []),
       ])
-    : [null, 0, 0, 0, 0, 0, [], { _sum: { amount: null } }, { _sum: { rentAmountMonthly: null } }, 0, 0, [], [], [], []];
+    : [null, 0, 0, 0, 0, 0, [], { _sum: { amount: null } }, { _sum: { rentAmountMonthly: null } }, 0, 0, [], [], 0, [], [], [], []];
 
   const collected = collectedAgg._sum.amount ?? 0;
   const charged = chargedAgg._sum.rentAmountMonthly ?? 0;
@@ -217,8 +261,8 @@ export default async function TeamHome() {
       ]
     : [
         { href: "/team/work-orders", label: "Work orders", primary: true },
+        { href: "/team/amenities", label: "Amenities" },
         { href: "/team/units", label: "Units" },
-        { href: "/team/documents", label: "Documents" },
       ];
 
   return (
@@ -281,44 +325,132 @@ export default async function TeamHome() {
       {building && (
         <>
           {/* ── Portfolio strip ─────────────────────────────────────── */}
+          {/* Persona-tuned KPI strip: BM sees money + portfolio, FM sees
+              facilities + amenities, concierge sees the front desk. */}
           <Reveal className="mt-8">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <StatCard
-                label="Occupancy"
-                value={occupancyPct !== null ? occupancyPct : "—"}
-                format="percent"
-                hint={unitCount > 0 ? `${occupiedUnits} of ${unitCount} units leased` : "Add units to track occupancy"}
-                href={isBM || isFM ? "/team/units" : undefined}
-              />
-              <StatCard
-                label="Open work orders"
-                value={openCount}
-                hint={
-                  openCount === 0
-                    ? "Queue is clear"
-                    : `${urgentCount} urgent · ${overdueCount} overdue`
-                }
-                href="/team/work-orders"
-              />
-              {isBM || isFM ? (
-                <StatCard
-                  label="Collected this month"
-                  value={collected}
-                  format="cad"
-                  hint={charged > 0 ? `of ${fmtMoney(charged)} charged` : "No active leases recorded"}
-                  href={isBM ? "/team/residents" : undefined}
-                />
+              {isConcierge ? (
+                <>
+                  <StatCard
+                    label="Packages awaiting"
+                    value={pendingPackages}
+                    hint={pendingPackages === 0 ? "Shelf is clear" : "Awaiting pickup"}
+                    href="/team/packages"
+                  />
+                  <StatCard
+                    label="Waiting 3+ days"
+                    value={stalePackages}
+                    hint={stalePackages === 0 ? "Nothing stale" : "Nudge the recipients"}
+                    href="/team/packages"
+                  />
+                  <StatCard label="Residents" value={residentCount} href="/team/residents" />
+                  <StatCard
+                    label="Open work orders"
+                    value={openCount}
+                    hint={openCount === 0 ? "Queue is clear" : `${urgentCount} urgent`}
+                    href="/team/work-orders"
+                  />
+                </>
+              ) : isFM ? (
+                <>
+                  <StatCard
+                    label="Open work orders"
+                    value={openCount}
+                    hint={openCount === 0 ? "Queue is clear" : `${urgentCount} urgent · ${overdueCount} overdue`}
+                    href="/team/work-orders"
+                  />
+                  <StatCard
+                    label="Bookings today"
+                    value={todayBookings.length}
+                    hint="Amenity reservations"
+                    href="/team/amenities"
+                  />
+                  <StatCard
+                    label="Occupancy"
+                    value={occupancyPct !== null ? occupancyPct : "—"}
+                    format="percent"
+                    hint={unitCount > 0 ? `${occupiedUnits} of ${unitCount} units leased` : "Add units to track occupancy"}
+                    href="/team/units"
+                  />
+                  <StatCard label="Units" value={unitCount} href="/team/units" />
+                </>
               ) : (
-                <StatCard label="Residents" value={residentCount} href="/team/residents" />
+                <>
+                  <StatCard
+                    label="Occupancy"
+                    value={occupancyPct !== null ? occupancyPct : "—"}
+                    format="percent"
+                    hint={unitCount > 0 ? `${occupiedUnits} of ${unitCount} units leased` : "Add units to track occupancy"}
+                    href="/team/units"
+                  />
+                  <StatCard
+                    label="Open work orders"
+                    value={openCount}
+                    hint={openCount === 0 ? "Queue is clear" : `${urgentCount} urgent · ${overdueCount} overdue`}
+                    href="/team/work-orders"
+                  />
+                  <StatCard
+                    label="Collected this month"
+                    value={collected}
+                    format="cad"
+                    hint={charged > 0 ? `of ${fmtMoney(charged)} charged` : "No active leases recorded"}
+                    href="/team/residents"
+                  />
+                  <StatCard
+                    label="Packages awaiting"
+                    value={pendingPackages}
+                    hint={pendingPackages === 0 ? "Shelf is clear" : "Awaiting pickup"}
+                    href="/team/packages"
+                  />
+                </>
               )}
-              <StatCard
-                label="Packages awaiting"
-                value={pendingPackages}
-                hint={pendingPackages === 0 ? "Shelf is clear" : "Awaiting pickup"}
-                href={isBM || isConcierge ? "/team/packages" : undefined}
-              />
             </div>
           </Reveal>
+
+          {/* ── Concierge: front desk queue ─────────────────────────── */}
+          {isConcierge && (
+            <Reveal delay={0.04}>
+              <section className="mt-10">
+                <div className="flex items-baseline justify-between mb-3">
+                  <h2 className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+                    Front desk · packages awaiting pickup
+                  </h2>
+                  <Link href="/team/packages" className="text-xs text-accent hover:underline">
+                    Log package
+                  </Link>
+                </div>
+                {frontDeskDeliveries.length === 0 ? (
+                  <div className="bg-card border border-emerald-500/30 rounded-md px-5 py-4 text-sm flex items-center gap-3">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" aria-hidden="true" />
+                    <span className="text-muted-foreground">Shelf is clear — nothing waiting.</span>
+                  </div>
+                ) : (
+                  <ul className="bg-card border border-border rounded-md divide-y divide-border">
+                    {frontDeskDeliveries.map((d) => {
+                      const waitingDays = Math.abs(daysFrom(now, d.receivedAt));
+                      return (
+                        <li key={d.id} className="px-4 sm:px-5 py-3 flex items-center gap-3">
+                          <StatusPill
+                            label={waitingDays >= 3 ? `${waitingDays}d` : "New"}
+                            tone={waitingDays >= 3 ? "amber" : "neutral"}
+                            className="shrink-0"
+                          />
+                          <span className="min-w-0 flex-1 truncate text-sm">
+                            <span className="font-medium">{d.recipient.name || d.recipient.email}</span>
+                            {d.recipient.unitRel?.unitNumber ? ` · Unit ${d.recipient.unitRel.unitNumber}` : ""}
+                            <span className="text-muted-foreground"> — from {d.sender}</span>
+                          </span>
+                          <span className="text-xs text-muted-foreground shrink-0 hidden sm:inline">
+                            {formatRelative(d.receivedAt)}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </section>
+            </Reveal>
+          )}
 
           {/* ── Needs attention ─────────────────────────────────────── */}
           <Reveal delay={0.06}>
@@ -447,33 +579,62 @@ export default async function TeamHome() {
                 )}
               </section>
 
-              <section>
-                <div className="flex items-baseline justify-between mb-3">
-                  <h2 className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
-                    Newest residents
-                  </h2>
-                  <Link href="/team/residents" className="text-xs text-accent hover:underline">
-                    View all
-                  </Link>
-                </div>
-                {newestResidents.length === 0 ? (
-                  <p className="text-sm text-muted-foreground bg-card border border-border rounded-md px-4 py-3">
-                    No residents yet.
-                  </p>
-                ) : (
-                  <ul className="bg-card border border-border rounded-md divide-y divide-border">
-                    {newestResidents.map((u) => (
-                      <li key={u.id} className="px-4 py-3">
-                        <div className="text-sm font-medium truncate">{u.name || u.email}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          {u.unitRel?.unitNumber ? `Unit ${u.unitRel.unitNumber} · ` : ""}
-                          joined {formatRelative(u.createdAt)}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
+              {isFM ? (
+                <section>
+                  <div className="flex items-baseline justify-between mb-3">
+                    <h2 className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+                      Today at amenities
+                    </h2>
+                    <Link href="/team/amenities" className="text-xs text-accent hover:underline">
+                      View all
+                    </Link>
+                  </div>
+                  {todayBookings.length === 0 ? (
+                    <p className="text-sm text-muted-foreground bg-card border border-border rounded-md px-4 py-3">
+                      No bookings today.
+                    </p>
+                  ) : (
+                    <ul className="bg-card border border-border rounded-md divide-y divide-border">
+                      {todayBookings.map((b) => (
+                        <li key={b.id} className="px-4 py-3">
+                          <div className="text-sm font-medium truncate">{b.amenity.name}</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            {fmtTime(b.startTime)}–{fmtTime(b.endTime)} · {b.user.name || b.user.email}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              ) : (
+                <section>
+                  <div className="flex items-baseline justify-between mb-3">
+                    <h2 className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+                      Newest residents
+                    </h2>
+                    <Link href="/team/residents" className="text-xs text-accent hover:underline">
+                      View all
+                    </Link>
+                  </div>
+                  {newestResidents.length === 0 ? (
+                    <p className="text-sm text-muted-foreground bg-card border border-border rounded-md px-4 py-3">
+                      No residents yet.
+                    </p>
+                  ) : (
+                    <ul className="bg-card border border-border rounded-md divide-y divide-border">
+                      {newestResidents.map((u) => (
+                        <li key={u.id} className="px-4 py-3">
+                          <div className="text-sm font-medium truncate">{u.name || u.email}</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            {u.unitRel?.unitNumber ? `Unit ${u.unitRel.unitNumber} · ` : ""}
+                            joined {formatRelative(u.createdAt)}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              )}
             </aside>
           </div>
           </Reveal>

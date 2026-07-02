@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatRelative } from "@/lib/format";
@@ -70,6 +71,9 @@ type ActivityItem = {
 
 export default async function DashboardPage() {
   const { authUser, appUser } = await requireUser();
+  // Owners get the investment view; sub-pages (settings, documents)
+  // stay shared with residents.
+  if (appUser.role === "building_owner") redirect("/owner");
   const now = new Date();
   const isTenant = appUser.role === "tenant";
 

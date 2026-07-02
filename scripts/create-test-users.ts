@@ -25,6 +25,7 @@ const TEST_USERS: Array<{ email: string; role: UserRole }> = [
   { email: "sinhaankur827+concierge@gmail.com", role: "concierge" },
   { email: "sinhaankur827+resident@gmail.com", role: "resident" },
   { email: "sinhaankur827+tenant@gmail.com", role: "tenant" },
+  { email: "sinhaankur827+owner@gmail.com", role: "building_owner" },
 ];
 
 // Password is required — no hardcoded default, since a baked-in password

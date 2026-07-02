@@ -43,6 +43,7 @@ export default async function TeamLayout({ children }: { children: React.ReactNo
 
   const property: MobileNavItem[] = [];
   if (isBM || isFM) property.push({ href: "/team/units", label: "Units" });
+  property.push({ href: "/team/amenities", label: "Amenities" });
   if (isBM) property.push({ href: "/team/announcements", label: "Announcements" });
   property.push({ href: "/team/documents", label: "Documents" });
 
