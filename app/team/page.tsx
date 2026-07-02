@@ -6,6 +6,7 @@ import { StatCard } from "@/components/StatCard";
 import { StatusPill, workOrderTone, type Tone } from "@/components/StatusPill";
 import { roleLabel } from "@/components/RoleBadge";
 import { formatRelative } from "@/lib/format";
+import { Reveal } from "@/components/Reveal";
 
 // Command-center home for building staff, modelled on the patterns that
 // make AppFolio's PM dashboard work: a portfolio strip (occupancy, rent
@@ -280,42 +281,47 @@ export default async function TeamHome() {
       {building && (
         <>
           {/* ── Portfolio strip ─────────────────────────────────────── */}
-          <div className="mt-8 grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <StatCard
-              label="Occupancy"
-              value={occupancyPct !== null ? `${occupancyPct}%` : "—"}
-              hint={unitCount > 0 ? `${occupiedUnits} of ${unitCount} units leased` : "Add units to track occupancy"}
-              href={isBM || isFM ? "/team/units" : undefined}
-            />
-            <StatCard
-              label="Open work orders"
-              value={openCount}
-              hint={
-                openCount === 0
-                  ? "Queue is clear"
-                  : `${urgentCount} urgent · ${overdueCount} overdue`
-              }
-              href="/team/work-orders"
-            />
-            {isBM || isFM ? (
+          <Reveal className="mt-8">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <StatCard
-                label="Collected this month"
-                value={fmtMoney(collected)}
-                hint={charged > 0 ? `of ${fmtMoney(charged)} charged` : "No active leases recorded"}
-                href={isBM ? "/team/residents" : undefined}
+                label="Occupancy"
+                value={occupancyPct !== null ? occupancyPct : "—"}
+                format="percent"
+                hint={unitCount > 0 ? `${occupiedUnits} of ${unitCount} units leased` : "Add units to track occupancy"}
+                href={isBM || isFM ? "/team/units" : undefined}
               />
-            ) : (
-              <StatCard label="Residents" value={residentCount} href="/team/residents" />
-            )}
-            <StatCard
-              label="Packages awaiting"
-              value={pendingPackages}
-              hint={pendingPackages === 0 ? "Shelf is clear" : "Awaiting pickup"}
-              href={isBM || isConcierge ? "/team/packages" : undefined}
-            />
-          </div>
+              <StatCard
+                label="Open work orders"
+                value={openCount}
+                hint={
+                  openCount === 0
+                    ? "Queue is clear"
+                    : `${urgentCount} urgent · ${overdueCount} overdue`
+                }
+                href="/team/work-orders"
+              />
+              {isBM || isFM ? (
+                <StatCard
+                  label="Collected this month"
+                  value={collected}
+                  format="cad"
+                  hint={charged > 0 ? `of ${fmtMoney(charged)} charged` : "No active leases recorded"}
+                  href={isBM ? "/team/residents" : undefined}
+                />
+              ) : (
+                <StatCard label="Residents" value={residentCount} href="/team/residents" />
+              )}
+              <StatCard
+                label="Packages awaiting"
+                value={pendingPackages}
+                hint={pendingPackages === 0 ? "Shelf is clear" : "Awaiting pickup"}
+                href={isBM || isConcierge ? "/team/packages" : undefined}
+              />
+            </div>
+          </Reveal>
 
           {/* ── Needs attention ─────────────────────────────────────── */}
+          <Reveal delay={0.06}>
           <section className="mt-10">
             <div className="flex items-baseline justify-between mb-3">
               <h2 className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
@@ -349,8 +355,10 @@ export default async function TeamHome() {
               </ul>
             )}
           </section>
+          </Reveal>
 
           {/* ── Work queue + activity rail ──────────────────────────── */}
+          <Reveal delay={0.12}>
           <div className="mt-10 grid lg:grid-cols-3 gap-8">
             <section className="lg:col-span-2">
               <div className="flex items-baseline justify-between mb-3">
@@ -468,6 +476,7 @@ export default async function TeamHome() {
               </section>
             </aside>
           </div>
+          </Reveal>
         </>
       )}
     </main>

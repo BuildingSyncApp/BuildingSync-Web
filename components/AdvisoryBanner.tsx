@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import { useLocalStorageValue } from "@/components/useLocalStorageValue";
 
 // Rotating advisory strip for post-login surfaces — the airline-style
@@ -85,18 +86,28 @@ export function AdvisoryBanner({ items }: { items: AdvisoryItem[] }) {
       onMouseLeave={() => setPaused(false)}
     >
       <div className="min-w-0 flex-1">
-        <p className={`text-sm font-semibold leading-snug ${tone.title}`}>{current.title}</p>
-        <p className="mt-0.5 text-sm text-foreground/80 truncate">
-          {current.body}
-          {current.href && (
-            <>
-              {" "}
-              <Link href={current.href} className="underline underline-offset-2 whitespace-nowrap">
-                {current.hrefLabel ?? "Review"}
-              </Link>
-            </>
-          )}
-        </p>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={current.id}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.22 }}
+          >
+            <p className={`text-sm font-semibold leading-snug ${tone.title}`}>{current.title}</p>
+            <p className="mt-0.5 text-sm text-foreground/80 truncate">
+              {current.body}
+              {current.href && (
+                <>
+                  {" "}
+                  <Link href={current.href} className="underline underline-offset-2 whitespace-nowrap">
+                    {current.hrefLabel ?? "Review"}
+                  </Link>
+                </>
+              )}
+            </p>
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">

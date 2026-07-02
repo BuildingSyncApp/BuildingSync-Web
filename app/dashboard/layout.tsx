@@ -3,6 +3,8 @@ import { requireUser } from "@/lib/auth";
 import { ResidentShell } from "@/components/ResidentShell";
 import type { NavSection } from "@/components/MobileMenu";
 import { getNotifications } from "@/lib/notifications";
+import { AdvisoryBanner } from "@/components/AdvisoryBanner";
+import { getResidentAdvisories } from "@/lib/resident-advisories";
 
 const STAFF_ROLES = ["building_manager", "facility_manager", "concierge"] as const;
 
@@ -13,14 +15,20 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Done in the layout so sub-pages don't each have to re-check.
   if ((STAFF_ROLES as readonly string[]).includes(appUser.role)) redirect("/team");
 
-  const notifications = await getNotifications({
-    id: appUser.id,
-    role: appUser.role,
-    buildingId: appUser.buildingId,
-  }).catch((err) => {
-    console.error("[dashboard/layout] getNotifications failed", err);
-    return [];
-  });
+  const [notifications, advisories] = await Promise.all([
+    getNotifications({
+      id: appUser.id,
+      role: appUser.role,
+      buildingId: appUser.buildingId,
+    }).catch((err) => {
+      console.error("[dashboard/layout] getNotifications failed", err);
+      return [];
+    }),
+    getResidentAdvisories(appUser).catch((err) => {
+      console.error("[dashboard/layout] getResidentAdvisories failed", err);
+      return [];
+    }),
+  ]);
 
   // Two L1 sections that map to how residents actually think about the
   // app: shared building life vs. their own unit/account. Tenants
@@ -56,6 +64,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
       userRole={appUser.role}
       notifications={notifications}
     >
+      {advisories.length > 0 && (
+        <div className="px-4 md:px-6 pt-4 max-w-5xl mx-auto">
+          <AdvisoryBanner items={advisories} />
+        </div>
+      )}
       {children}
     </ResidentShell>
   );
