@@ -177,6 +177,61 @@ async function main() {
       console.log(`Seeded sample lease for ${resident.email}.`);
     }
   }
+
+  // Sample amenities + a booking today so the staff amenities view and
+  // FM dashboard have content on first run.
+  const gym = await prisma.amenity.upsert({
+    where: { id: "demo-amenity-gym" },
+    update: {},
+    create: {
+      id: "demo-amenity-gym",
+      buildingId: building.id,
+      name: "Fitness Centre",
+      category: "fitness",
+      bookingRequired: false,
+      capacity: 15,
+      openTime: "06:00",
+      closeTime: "23:00",
+    },
+  });
+  const partyRoom = await prisma.amenity.upsert({
+    where: { id: "demo-amenity-party" },
+    update: {},
+    create: {
+      id: "demo-amenity-party",
+      buildingId: building.id,
+      name: "Party Room",
+      category: "social",
+      bookingRequired: true,
+      capacity: 40,
+      openTime: "10:00",
+      closeTime: "23:00",
+      slotDurationMinutes: 120,
+    },
+  });
+  if (resident) {
+    const hasBooking = await prisma.amenityBooking.findFirst({
+      where: { amenityId: partyRoom.id, userId: resident.id },
+    });
+    if (!hasBooking) {
+      const start = new Date();
+      start.setHours(18, 0, 0, 0);
+      const end = new Date(start);
+      end.setHours(20);
+      await prisma.amenityBooking.create({
+        data: {
+          id: randomUUID(),
+          amenityId: partyRoom.id,
+          userId: resident.id,
+          startTime: start,
+          endTime: end,
+          status: "confirmed",
+        },
+      });
+      console.log(`Seeded a Party Room booking today for ${resident.email}.`);
+    }
+  }
+  console.log(`Seeded amenities: ${gym.name}, ${partyRoom.name}.`);
 }
 
 main()

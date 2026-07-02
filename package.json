@@ -14,8 +14,10 @@
     "lint": "eslint .",
     "lint:strict": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
+    "test": "AUTH_SECRET=test-secret-at-least-32-characters-long-xx node --import tsx --import ./test/setup-server-only-stub.mjs --import ./test/setup-next-headers-stub.mjs --test test/**/*.test.ts",
+    "test:integration": "npm run test",
     "verify": "prisma generate && npm run typecheck",
-    "ci": "prisma generate && npm run lint && npm run typecheck && npm run build",
+    "ci": "prisma generate && npm run lint && npm run typecheck && npm run test && npm run build",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
@@ -23,11 +25,12 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.98.0",
+    "@aws-sdk/client-s3": "^3.1075.0",
+    "@aws-sdk/s3-request-presigner": "^3.1075.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@stripe/stripe-js": "^9.3.1",
-    "@supabase/ssr": "^0.10.2",
-    "@supabase/supabase-js": "^2.104.1",
+    "argon2": "^0.41.1",
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.14.0",
     "next": "^16.2.4",
@@ -66,5 +69,8 @@
     "Android >= 8",
     "Samsung >= 14",
     "not dead"
-  ]
+  ],
+  "allowScripts": {
+    "argon2@0.41.1": true
+  }
 }

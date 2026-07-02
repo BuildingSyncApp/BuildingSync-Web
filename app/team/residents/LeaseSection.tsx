@@ -1,10 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { addLease, archiveLease } from "./actions";
+import { addLease, archiveLease, recordOfflinePayment } from "./actions";
 
 type Tenant = { id: string; email: string; name: string | null };
 type Unit = { id: string; unitNumber: string };
@@ -33,24 +33,48 @@ export function LeaseSection({
   tenants,
   units,
   leases,
+  canRecordPayments = false,
 }: {
   tenants: Tenant[];
   units: Unit[];
   leases: Lease[];
+  // BM-only: rent money never surfaces for FM/concierge.
+  canRecordPayments?: boolean;
 }) {
   const router = useRouter();
-  const [state, formAction, pending] = useActionState<AddResult, FormData>(addLease, null);
   const [archivePending, startArchive] = useTransition();
   const [open, setOpen] = useState(false);
+  const [payFor, setPayFor] = useState<string | null>(null);
+  const [payPending, startPay] = useTransition();
+  const [today] = useState(() => new Date().toISOString().slice(0, 10));
 
-  useEffect(() => {
-    if (state?.ok) {
-      toast.success("Lease recorded");
-      setOpen(false);
-      router.refresh();
-    }
-    if (state && !state.ok) toast.error("Couldn't record lease", { description: state.error });
-  }, [state, router]);
+  function submitPayment(fd: FormData) {
+    startPay(async () => {
+      const res = await recordOfflinePayment(null, fd);
+      if (res.ok) {
+        toast.success("Payment recorded");
+        setPayFor(null);
+        router.refresh();
+      } else {
+        toast.error("Couldn't record payment", { description: res.error });
+      }
+    });
+  }
+  // Toast + collapse live inside the action (not an effect) — actions run
+  // in a transition, so setState here doesn't cascade renders.
+  const [state, formAction, pending] = useActionState<AddResult, FormData>(
+    async (prev, formData) => {
+      const result = await addLease(prev, formData);
+      if (result?.ok) {
+        toast.success("Lease recorded");
+        setOpen(false);
+        router.refresh();
+      }
+      if (result && !result.ok) toast.error("Couldn't record lease", { description: result.error });
+      return result;
+    },
+    null,
+  );
 
   function endLease(leaseId: string, label: string) {
     if (!confirm(`End the active lease for ${label}? This unlocks the unit for a new lease.`)) return;
@@ -174,21 +198,73 @@ export function LeaseSection({
         <div className="mt-4 bg-card border border-border rounded-md overflow-hidden">
           <ul className="divide-y divide-border">
             {leases.map((l) => (
-              <li key={l.id} className="px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
-                <div className="min-w-0">
-                  <div className="font-medium truncate">{l.tenantLabel}</div>
-                  <div className="text-xs text-muted-foreground">
-                    Unit {l.unitLabel} · {fmtMoney(l.rentAmountMonthly)}/mo · {fmtDate(l.leaseStartDate)} → {fmtDate(l.leaseEndDate)}
+              <li key={l.id} className="px-5 py-4">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{l.tenantLabel}</div>
+                    <div className="text-xs text-muted-foreground">
+                      Unit {l.unitLabel} · {fmtMoney(l.rentAmountMonthly)}/mo · {fmtDate(l.leaseStartDate)} → {fmtDate(l.leaseEndDate)}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {canRecordPayments && (
+                      <button
+                        type="button"
+                        onClick={() => setPayFor(payFor === l.id ? null : l.id)}
+                        className="text-xs px-3 py-1.5 rounded-md border border-border hover:border-accent hover:text-accent transition-colors"
+                      >
+                        {payFor === l.id ? "Cancel" : "Record payment"}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => endLease(l.id, l.tenantLabel)}
+                      disabled={archivePending}
+                      className="text-xs px-3 py-1.5 rounded-md border border-border hover:border-red-500/60 hover:text-red-600 transition-colors disabled:opacity-50"
+                    >
+                      End lease
+                    </button>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => endLease(l.id, l.tenantLabel)}
-                  disabled={archivePending}
-                  className="text-xs px-3 py-1.5 rounded-md border border-border hover:border-red-500/60 hover:text-red-600 transition-colors disabled:opacity-50"
-                >
-                  End lease
-                </button>
+
+                {/* Offline payment form — e-transfer/cheque/cash. Cheaper for
+                    the building than card rails; keeps collections truthful. */}
+                {canRecordPayments && payFor === l.id && (
+                  <form action={submitPayment} className="mt-3 pt-3 border-t border-border grid sm:grid-cols-4 gap-3 items-end">
+                    <input type="hidden" name="leaseId" value={l.id} />
+                    <label className="block">
+                      <span className="block text-xs font-medium mb-1">Amount (CAD)</span>
+                      <input
+                        type="number"
+                        name="amount"
+                        required
+                        min="1"
+                        step="0.01"
+                        defaultValue={l.rentAmountMonthly}
+                        className={inputClass}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="block text-xs font-medium mb-1">Method</span>
+                      <select name="method" defaultValue="e_transfer" className={inputClass}>
+                        <option value="e_transfer">E-transfer</option>
+                        <option value="cheque">Cheque</option>
+                        <option value="cash">Cash</option>
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="block text-xs font-medium mb-1">Received on</span>
+                      <input type="date" name="paidOn" required defaultValue={today} max={today} className={inputClass} />
+                    </label>
+                    <button
+                      type="submit"
+                      disabled={payPending}
+                      className="inline-flex items-center justify-center bg-accent text-accent-foreground px-4 py-2 rounded-md text-sm font-semibold hover:bg-accent/90 transition-colors disabled:opacity-60"
+                    >
+                      {payPending ? "Recording…" : "Record"}
+                    </button>
+                  </form>
+                )}
               </li>
             ))}
           </ul>

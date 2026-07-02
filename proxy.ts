@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { updateSession } from "@/utils/supabase/middleware";
 
 const ADMIN_HOST = process.env.ADMIN_HOST || "admin.buildingsync.app";
 
@@ -26,7 +25,10 @@ const PASS_THROUGH_PREFIXES = [
 const STATIC_FILE = /\.(svg|png|jpe?g|gif|webp|ico|js|css|json|webmanifest|txt|map)$/i;
 
 export async function proxy(request: NextRequest) {
-  const response = await updateSession(request);
+  // Our session is a stateless, signed cookie (lib/auth-core) — unlike the
+  // old Supabase session it needs no per-request server-side refresh, so the
+  // proxy just passes requests through and handles admin-host rewriting.
+  const response = NextResponse.next({ request: { headers: request.headers } });
   const host = request.headers.get("host") || "";
   const isAdmin = host === ADMIN_HOST || host.startsWith("admin.");
   if (!isAdmin) return response;

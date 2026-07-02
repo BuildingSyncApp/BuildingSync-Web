@@ -316,7 +316,7 @@ const MODULES = [
   },
   {
     title: "Work-order lifecycle",
-    body: "Resident submits → SLA deadline computed → BM/FM triage with AI-assisted summary at the top. Threaded notes + email + push on every state change.",
+    body: "Resident submits → response deadline computed → BM/FM triage with AI-assisted summary at the top. Threaded notes + email + push on every state change.",
   },
   {
     title: "Communications",

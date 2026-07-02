@@ -53,7 +53,7 @@ export const viewport: Viewport = {
 const themeBootstrap = `
 (function() {
   try {
-    var t = localStorage.getItem('bs-theme') || 'paper';
+    var t = localStorage.getItem('bs-theme') || 'light';
     var html = document.documentElement;
     html.classList.remove('dark');
     html.removeAttribute('data-theme');

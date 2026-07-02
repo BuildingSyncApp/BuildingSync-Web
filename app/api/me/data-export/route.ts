@@ -56,8 +56,8 @@ export async function GET() {
     auth_user: {
       id: authUser.id,
       email: authUser.email,
-      created_at: authUser.created_at,
-      last_sign_in_at: authUser.last_sign_in_at,
+      created_at: appUser.createdAt,
+      last_sign_in_at: appUser.lastLoginAt,
     },
     profile,
     leases,

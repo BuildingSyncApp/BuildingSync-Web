@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { sendEmail } from "@/lib/email";
+import { notifyWebhooksFireAndForget } from "@/lib/notify-webhooks";
 import { prisma } from "@/lib/prisma";
 
 const TO = process.env.CONTACT_INBOX || "info@buildingsync.app";
@@ -87,6 +88,14 @@ export async function POST(request: NextRequest) {
 From: ${name} <${email}>
 
 ${message}`;
+
+  // Ping Slack/Discord (if configured) the moment the lead is stored —
+  // instant visibility even if the email leg is down.
+  notifyWebhooksFireAndForget({
+    title: `New enquiry — ${TOPIC_LABEL[topic]}`,
+    lines: [`From: ${name} <${email}>`, message.length > 400 ? `${message.slice(0, 400)}…` : message],
+    href: `${process.env.APP_BASE_URL || "https://buildingsync.app"}/platform/leads`,
+  });
 
   // Now attempt the notification email. The lead is already saved, so an
   // email failure must NOT fail the request — we record the outcome on the

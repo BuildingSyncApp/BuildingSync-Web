@@ -200,14 +200,16 @@ function SplitFlapChar({ char, index, animationKey, skipEntrance, speed, playCli
     if (intervalRef.current) clearInterval(intervalRef.current)
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
 
-    if (isSpace) {
-      setCurrentChar(" ")
-      setIsSettled(true)
-      return
-    }
+    // Spaces render as a fixed spacer (early return below) — no
+    // animation state to drive.
+    if (isSpace) return
 
-    setIsSettled(false)
-    setCurrentChar(CHARSET[Math.floor(Math.random() * CHARSET.length)])
+    // Kick off the scramble on the next frame; keeps the effect body
+    // free of synchronous setState.
+    const kickoff = requestAnimationFrame(() => {
+      setIsSettled(false)
+      setCurrentChar(CHARSET[Math.floor(Math.random() * CHARSET.length)])
+    })
 
     const baseFlips = 8
     const startDelay = skipEntrance ? tileDelay * 400 : tileDelay * 800
@@ -233,6 +235,7 @@ function SplitFlapChar({ char, index, animationKey, skipEntrance, speed, playCli
     }, startDelay)
 
     return () => {
+      cancelAnimationFrame(kickoff)
       if (intervalRef.current) clearInterval(intervalRef.current)
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
     }

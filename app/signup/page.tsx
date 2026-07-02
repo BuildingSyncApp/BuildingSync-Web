@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { createClient } from "@/utils/supabase/client";
+import { registerUser } from "@/lib/auth-actions";
 import { AuthShell } from "@/components/AuthShell";
 import { LocationPicker, type LocationValue } from "@/components/LocationPicker";
 import { validatePostalAgainstRegion } from "@/lib/postal";
@@ -42,7 +43,8 @@ const DEFAULT_LOCATION: LocationValue = {
 };
 
 export default function SignUpPage() {
-  const supabase = createClient();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState<Step>(1);
 
   // Account
@@ -53,7 +55,8 @@ export default function SignUpPage() {
   // Profile
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
+  // Invite links land here as /signup?code=XXXXXX — prefill from the URL.
+  const [inviteCode, setInviteCode] = useState(() => normalizeInviteCode(searchParams.get("code") ?? ""));
   const [roleIntent, setRoleIntent] = useState<RoleIntent>("resident_or_tenant");
 
   // BM-only verification fields
@@ -70,14 +73,7 @@ export default function SignUpPage() {
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [companyHoneypot, setCompanyHoneypot] = useState("");
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get("code");
-    if (code) setInviteCode(normalizeInviteCode(code));
-  }, []);
-
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const strength = useMemo(() => passwordStrength(password), [password]);
@@ -116,42 +112,38 @@ export default function SignUpPage() {
     setLoading(true);
 
     const code = inviteCode ? normalizeInviteCode(inviteCode) : null;
-    const { error } = await supabase.auth.signUp({
+    const result = await registerUser({
       email,
       password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-        data: {
-          full_name: name,
-          phone: phone || null,
-          invite_code: code && code.length === 6 ? code : null,
-          // New fields — persisted to Prisma User on first auth via
-          // lib/auth.ts getOrCreateAppUser.
-          role_intent: roleIntent,
-          region: location.region,
-          postal_code: location.postalCode || null,
-          city: location.city || null,
-          latitude: location.latitude,
-          longitude: location.longitude,
-          // BM verification fields — admin reviews these in
-          // /platform/verifications before flipping verifiedAt.
-          ...(isBM
-            ? {
-                company_name: companyName,
-                manager_type: managerType,
-                business_number: businessNumber || null,
-                license_number: licenseNumber || null,
-              }
-            : {}),
-        },
-      },
+      name,
+      phone: phone || null,
+      inviteCode: code && code.length === 6 ? code : null,
+      region: location.region,
+      postalCode: location.postalCode || null,
+      city: location.city || null,
+      latitude: location.latitude,
+      longitude: location.longitude,
+      // BM verification fields — admin reviews these in
+      // /platform/verifications before flipping verifiedAt. The server
+      // always creates the row as `resident`; role_intent is advisory.
+      ...(isBM
+        ? {
+            company: companyName,
+            managerType,
+            businessNumber: businessNumber || null,
+            licenseNumber: licenseNumber || null,
+          }
+        : {}),
     });
-    setLoading(false);
-    if (error) {
-      setError(error.message);
+    if (!result.ok) {
+      setLoading(false);
+      setError(result.error);
       return;
     }
-    setDone(true);
+    // Session is set server-side; land the user in the app. The portal
+    // resolver routes by role from there.
+    router.push("/dashboard");
+    router.refresh();
   }
 
   return (
@@ -166,12 +158,9 @@ export default function SignUpPage() {
     >
       <div>
         <div className="bg-card border border-border rounded-xl p-6 sm:p-8 shadow-sm">
-          {!done && <Stepper current={step} />}
+          <Stepper current={step} />
 
           <AnimatePresence mode="wait">
-            {done ? (
-              <DoneView key="done" email={email} onReset={() => { setDone(false); setStep(1); }} />
-            ) : (
               <motion.div
                 key={`step-${step}`}
                 initial={{ opacity: 0, x: 8 }}
@@ -270,7 +259,6 @@ export default function SignUpPage() {
                   </p>
                 </form>
               </motion.div>
-            )}
           </AnimatePresence>
         </div>
 
@@ -676,33 +664,5 @@ function StepVerify(props: {
         </span>
       </label>
     </>
-  );
-}
-
-function DoneView({ email, onReset }: { email: string; onReset: () => void }) {
-  return (
-    <motion.div
-      key="done"
-      initial={{ opacity: 0, scale: 0.96 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.3 }}
-      className="text-center py-4"
-    >
-      <div className="mx-auto w-12 h-12 rounded-full bg-accent/10 border border-accent/30 flex items-center justify-center text-accent text-2xl">
-        ✓
-      </div>
-      <h1 className="mt-5 text-2xl font-semibold tracking-tight text-foreground">Check your email</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        We sent a confirmation link to <span className="text-foreground font-medium">{email}</span>.<br />
-        Open it to confirm and finish onboarding.
-      </p>
-      <p className="mt-4 text-xs text-muted-foreground">
-        No email after a few minutes? Check spam, or{" "}
-        <button type="button" onClick={onReset} className="text-accent hover:underline">
-          try a different address
-        </button>
-        .
-      </p>
-    </motion.div>
   );
 }

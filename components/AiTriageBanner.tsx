@@ -70,7 +70,7 @@ export function AiTriageBanner() {
             </span>
             {state.status === "ok" && state.slaBreaches > 0 && (
               <span className="text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 rounded-full border border-rose-500/30 text-rose-700 dark:text-rose-400 bg-rose-500/10">
-                {state.slaBreaches} SLA breach{state.slaBreaches === 1 ? "" : "es"}
+                {state.slaBreaches} overdue
               </span>
             )}
           </div>

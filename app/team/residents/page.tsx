@@ -132,6 +132,7 @@ export default async function TeamResidentsPage() {
 
       {canAdd && (
         <LeaseSection
+          canRecordPayments={appUser.role === "building_manager"}
           tenants={residents.map((r) => ({ id: r.id, email: r.email, name: r.name }))}
           units={units}
           leases={leases.map((l) => ({

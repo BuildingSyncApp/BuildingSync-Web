@@ -38,27 +38,30 @@ function applyAttribute(name: string, value: string, defaultValue: string) {
   else html.setAttribute(name, value);
 }
 
+// Lazy state initialiser — safe because the values aren't rendered until
+// the (client-only) dropdown opens, so SSR/client HTML stays identical.
+function readPref<T extends string>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try {
+    return (window.localStorage.getItem(key) as T | null) || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export function AccessibilityMenu() {
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const [fontScale, setFontScale] = useState<FontScale>("default");
-  const [motionPref, setMotionPref] = useState<Motion>("auto");
-  const [underline, setUnderline] = useState<LinkUnderline>("default");
+  const [fontScale, setFontScale] = useState<FontScale>(() => readPref("bs-a11y-font", "default"));
+  const [motionPref, setMotionPref] = useState<Motion>(() => readPref("bs-a11y-motion", "auto"));
+  const [underline, setUnderline] = useState<LinkUnderline>(() => readPref("bs-a11y-underline", "default"));
   const ref = useRef<HTMLDivElement>(null);
 
+  // Single sync point: state → data-* attributes on <html>.
   useEffect(() => {
-    const f = (localStorage.getItem("bs-a11y-font") as FontScale | null) || "default";
-    const m = (localStorage.getItem("bs-a11y-motion") as Motion | null) || "auto";
-    const u =
-      (localStorage.getItem("bs-a11y-underline") as LinkUnderline | null) || "default";
-    setFontScale(f);
-    setMotionPref(m);
-    setUnderline(u);
-    applyAttribute("data-font-scale", f, "default");
-    applyAttribute("data-motion", m, "auto");
-    applyAttribute("data-underline", u, "default");
-    setMounted(true);
-  }, []);
+    applyAttribute("data-font-scale", fontScale, "default");
+    applyAttribute("data-motion", motionPref, "auto");
+    applyAttribute("data-underline", underline, "default");
+  }, [fontScale, motionPref, underline]);
 
   useEffect(() => {
     if (!open) return;
@@ -81,25 +84,18 @@ export function AccessibilityMenu() {
     try {
       localStorage.setItem("bs-a11y-font", value);
     } catch {}
-    applyAttribute("data-font-scale", value, "default");
   }
   function pickMotion(value: Motion) {
     setMotionPref(value);
     try {
       localStorage.setItem("bs-a11y-motion", value);
     } catch {}
-    applyAttribute("data-motion", value, "auto");
   }
   function pickUnderline(value: LinkUnderline) {
     setUnderline(value);
     try {
       localStorage.setItem("bs-a11y-underline", value);
     } catch {}
-    applyAttribute("data-underline", value, "default");
-  }
-
-  if (!mounted) {
-    return <div className="w-9 h-9 hidden md:inline-flex" aria-hidden />;
   }
 
   return (

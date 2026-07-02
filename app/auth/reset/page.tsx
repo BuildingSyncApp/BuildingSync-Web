@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { createClient } from "@/utils/supabase/client";
+import { setPasswordWithToken } from "@/lib/auth-actions";
 import { AuthShell } from "@/components/AuthShell";
 
 function passwordStrength(pw: string): { score: 0 | 1 | 2 | 3 | 4; label: string } {
@@ -19,9 +19,23 @@ function passwordStrength(pw: string): { score: 0 | 1 | 2 | 3 | 4; label: string
 }
 
 export default function ResetPage() {
+  return (
+    <Suspense fallback={null}>
+      <ResetPageInner />
+    </Suspense>
+  );
+}
+
+function ResetPageInner() {
   const router = useRouter();
-  const supabase = createClient();
-  const [ready, setReady] = useState(false);
+  const searchParams = useSearchParams();
+  // The reset / invite email carries a signed, self-expiring token in the
+  // query string (lib/auth-actions). `invite=1` distinguishes a first-time
+  // account activation from a password reset, for copy only.
+  const token = searchParams.get("token") ?? "";
+  const isInvite = searchParams.get("invite") === "1";
+  const ready = token.length > 0;
+
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,31 +44,22 @@ export default function ResetPage() {
 
   const strength = useMemo(() => passwordStrength(password), [password]);
 
-  // Supabase delivers the recovery token in the URL hash; the SDK consumes it
-  // automatically on mount. We just confirm a session exists before letting
-  // the user change their password.
-  useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") setReady(true);
-    });
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setReady(true);
-    });
-    return () => sub.subscription.unsubscribe();
-  }, [supabase]);
-
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const { error } = await supabase.auth.updateUser({ password });
+    const result = await setPasswordWithToken(token, password);
     setLoading(false);
-    if (error) {
-      setError(error.message);
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
     setDone(true);
-    setTimeout(() => router.push("/?go=1"), 1500);
+    // Session is set server-side on success; route into the app.
+    setTimeout(() => {
+      router.push("/?go=1");
+      router.refresh();
+    }, 1500);
   }
 
   return (
@@ -70,7 +75,7 @@ export default function ResetPage() {
                 ✓
               </div>
               <h1 className="mt-5 text-2xl font-semibold tracking-tight text-foreground">
-                Password updated
+                {isInvite ? "Account activated" : "Password updated"}
               </h1>
               <p className="mt-2 text-sm text-muted-foreground">
                 Redirecting you to your dashboard…
@@ -79,12 +84,14 @@ export default function ResetPage() {
           ) : (
             <>
               <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-foreground">
-                Set a new password
+                {isInvite ? "Set your password" : "Set a new password"}
               </h1>
               <p className="mt-1.5 text-sm text-muted-foreground">
                 {ready
-                  ? "Choose something you haven't used before."
-                  : "Verifying your reset link…"}
+                  ? isInvite
+                    ? "Choose a password to activate your account."
+                    : "Choose something you haven't used before."
+                  : "This link is missing its token. Request a new one from the sign-in page."}
               </p>
 
               <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>

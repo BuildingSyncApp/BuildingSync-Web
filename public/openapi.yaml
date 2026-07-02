@@ -53,6 +53,8 @@ servers:
     description: Local development
 
 tags:
+  - name: Auth
+    description: Backend-agnostic sign-in / token endpoints (provider-independent).
   - name: WorkOrders
     description: Maintenance requests submitted by residents and managed by staff.
   - name: Announcements
@@ -297,18 +299,191 @@ paths:
               schema: { $ref: "#/components/schemas/DataExport" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  # ─── Auth (backend-agnostic contract) ─────────────────────────────────
+  # These endpoints define the AUTH CONTRACT independent of the provider
+  # behind it. Today it is backed by Supabase Auth; when BuildingSync moves
+  # to its own auth (Auth.js + argon2id on Neon) the implementation changes
+  # but this contract — and every client built against it — does not.
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Exchange email + password for an access token.
+      description: |
+        Backend-agnostic sign-in. Returns a bearer access token (and a refresh
+        token) plus the authenticated user. Native clients store the access
+        token and send it as `Authorization: Bearer <token>` on every request;
+        the web app additionally receives an HttpOnly session cookie.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+      responses:
+        "200":
+          description: Signed in.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResult" }
+        "400": { $ref: "#/components/responses/InvalidBody" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Exchange a refresh token for a new access token.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        "200":
+          description: Refreshed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResult" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Invalidate the current session / token.
+      responses:
+        "204": { description: Signed out. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/me:
+    get:
+      tags: [Me]
+      summary: The authenticated user + their building context.
+      description: |
+        The single call a client makes on launch to learn who the user is,
+        which building/unit they belong to, and their active role. Drives the
+        mobile home screen header and role switching.
+      responses:
+        "200":
+          description: Current user.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/me/building:
+    get:
+      tags: [Me]
+      summary: Everything the signed-in user can see for their building.
+      description: |
+        Aggregate read for the resident/tenant mobile surface: building info,
+        announcements, deliveries addressed to the user, the user's maintenance
+        requests, payment status (tenants), and move-out checklist (tenants).
+        One round-trip keeps the mobile launch fast; clients may also call the
+        per-resource endpoints below for refresh.
+      responses:
+        "200":
+          description: Building data bundle.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BuildingData" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/me/deliveries:
+    get:
+      tags: [Me]
+      summary: Packages/deliveries addressed to the caller.
+      responses:
+        "200":
+          description: Deliveries.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deliveries]
+                properties:
+                  deliveries:
+                    type: array
+                    items: { $ref: "#/components/schemas/Delivery" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/me/maintenance:
+    get:
+      tags: [Me]
+      summary: The caller's maintenance requests.
+      responses:
+        "200":
+          description: Maintenance requests.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [requests]
+                properties:
+                  requests:
+                    type: array
+                    items: { $ref: "#/components/schemas/MaintenanceRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [Me]
+      summary: Submit a new maintenance request.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, area]
+              properties:
+                title: { type: string, minLength: 3, maxLength: 200 }
+                area: { type: string, maxLength: 80 }
+                description: { type: string, maxLength: 2000 }
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MaintenanceRequest" }
+        "400": { $ref: "#/components/responses/InvalidBody" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/me/payments:
+    get:
+      tags: [Me]
+      summary: The caller's payment status (rent / fees).
+      responses:
+        "200":
+          description: Payment info.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaymentInfo" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Supabase access token from the auth SDK.
+      description: >-
+        Access token obtained from POST /api/auth/login (or /api/auth/refresh).
+        Backend-agnostic: the token is issued by whatever auth provider backs
+        the platform (currently Supabase; Auth.js when BuildingSync moves to
+        Neon). Clients never depend on the provider — only on this contract.
     cookieSession:
       type: apiKey
       in: cookie
-      name: sb-access-token
-      description: Set automatically by the BuildingSync web app after sign-in.
+      name: bs-session
+      description: HttpOnly session cookie set by the web app after sign-in.
 
   responses:
     Unauthorized:
@@ -412,3 +587,93 @@ components:
         posts_authored: { type: array, items: { type: object } }
         deliveries: { type: array, items: { type: object } }
         audit_log: { type: array, items: { type: object } }
+
+    # ─── Auth + mobile-surface schemas ──────────────────────────────────
+    AuthResult:
+      type: object
+      required: [accessToken, user]
+      properties:
+        accessToken: { type: string, description: Bearer JWT for the Authorization header. }
+        refreshToken: { type: string, nullable: true }
+        expiresIn: { type: integer, description: Seconds until the access token expires., example: 3600 }
+        user: { $ref: "#/components/schemas/Me" }
+
+    Me:
+      type: object
+      required: [id, email, role]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        displayName: { type: string, nullable: true }
+        role:
+          type: string
+          description: Active role for this session.
+          enum: [resident, tenant, building_manager, facility_manager, concierge, building_owner, admin]
+        accessibleRoles:
+          type: array
+          description: Roles this account may switch between.
+          items: { type: string }
+        buildingId: { type: string, format: uuid, nullable: true }
+        unit: { type: string, nullable: true, example: "1208" }
+
+    Building:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, example: Building One }
+        address: { type: string, nullable: true }
+        city: { type: string, nullable: true }
+        registry: { type: string, nullable: true, description: Condo/legal registry id, e.g. TSCC 1694. }
+
+    Delivery:
+      type: object
+      required: [id, status]
+      properties:
+        id: { type: string, format: uuid }
+        from: { type: string, nullable: true, example: Amazon }
+        description: { type: string, nullable: true }
+        arrivedAt: { type: string, format: date-time, nullable: true }
+        code: { type: string, nullable: true, example: B-2244 }
+        status: { type: string, enum: [ready, picked_up] }
+
+    MaintenanceRequest:
+      type: object
+      required: [id, title, status]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        area: { type: string, nullable: true }
+        status: { type: string, enum: [open, in_progress, scheduled, resolved] }
+        submittedAt: { type: string, format: date-time, nullable: true }
+        lastUpdate: { type: string, nullable: true }
+
+    PaymentInfo:
+      type: object
+      properties:
+        amountDue: { type: number, example: 2850 }
+        currency: { type: string, example: CAD }
+        dueDate: { type: string, format: date, nullable: true }
+        daysUntilDue: { type: integer, nullable: true }
+        autopay: { type: boolean }
+
+    BuildingData:
+      type: object
+      required: [building, announcements, deliveries, maintenance]
+      description: Aggregate read for the resident/tenant mobile home surface.
+      properties:
+        building: { $ref: "#/components/schemas/Building" }
+        announcements:
+          type: array
+          items: { $ref: "#/components/schemas/Announcement" }
+        deliveries:
+          type: array
+          items: { $ref: "#/components/schemas/Delivery" }
+        maintenance:
+          type: array
+          items: { $ref: "#/components/schemas/MaintenanceRequest" }
+        payment:
+          oneOf:
+            - { $ref: "#/components/schemas/PaymentInfo" }
+            - { type: "null" }
+          description: Present for tenants; null otherwise.

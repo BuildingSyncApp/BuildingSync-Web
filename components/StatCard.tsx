@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { CountUp } from "@/components/CountUp";
 
 // R&D-style stat card. Bordered, eyebrow label (mono uppercase), big
 // number, subtitle. Optional href turns the whole card into a link.
+// Numeric values count up on mount (CountUp); strings render as-is.
 //
 // Used to replace the inline stat divs that were drifting on /team and
 // /platform home pages.
@@ -9,12 +11,14 @@ import Link from "next/link";
 export function StatCard({
   label,
   value,
+  format,
   hint,
   href,
   className = "",
 }: {
   label: string;
   value: number | string;
+  format?: "plain" | "cad" | "percent";
   hint?: string;
   href?: string;
   className?: string;
@@ -25,7 +29,7 @@ export function StatCard({
         {label}
       </div>
       <div className="mt-2 text-3xl md:text-4xl font-semibold tabular-nums tracking-tight">
-        {value}
+        {typeof value === "number" ? <CountUp value={value} format={format} /> : value}
       </div>
       {hint && (
         <div className="mt-1 text-xs text-muted-foreground">
@@ -35,11 +39,14 @@ export function StatCard({
     </>
   );
 
-  const base = "block bg-card border border-border rounded-md px-5 py-5 transition-colors";
+  const base = "block bg-card border border-border rounded-md px-5 py-5 transition-all duration-200";
 
   if (href) {
     return (
-      <Link href={href} className={`${base} hover:border-accent ${className}`}>
+      <Link
+        href={href}
+        className={`${base} hover:border-accent hover:shadow-lg hover:shadow-foreground/5 hover:-translate-y-0.5 ${className}`}
+      >
         {inner}
       </Link>
     );

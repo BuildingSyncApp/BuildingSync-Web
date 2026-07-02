@@ -2,11 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logAuditFireAndForget } from "@/lib/audit";
-import { createClient } from "@/utils/supabase/server";
+import { destroySession } from "@/lib/session";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -74,11 +73,10 @@ export async function requestAccountDeletion(): Promise<ActionResult | void> {
     changes: { reason: "user_requested_deletion" },
   });
 
-  // Sign the user out of Supabase + clear local cookies so the
-  // archived account can't keep using the session.
+  // Clear the session cookie so the archived account can't keep using
+  // its session.
   try {
-    const supabase = await createClient(await cookies());
-    await supabase.auth.signOut();
+    await destroySession();
   } catch (err) {
     console.error("[settings] sign-out after archive failed", err);
   }

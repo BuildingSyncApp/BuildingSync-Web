@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { hashPassword, verifyPassword } from "@/lib/auth-core";
+import { logAuditFireAndForget } from "@/lib/audit";
 import {
   detectPostalKind,
   normalizeCanadian,
@@ -68,39 +69,33 @@ export async function updatePassword(_prev: unknown, formData: FormData): Promis
   if (parsed.data.currentPassword === parsed.data.password) {
     return { ok: false, error: "New password must differ from current password." };
   }
-  // Step 1 — verify current password by re-authenticating against Supabase.
-  // Use a fresh client (no shared cookie store) so this signin doesn't
-  // mutate the live session; we only need the success/failure signal.
-  const verifyClient = createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-  );
-  const { error: signInError } = await verifyClient.auth.signInWithPassword({
-    email: session.authUser.email!,
-    password: parsed.data.currentPassword,
+
+  // Verify the current password against our own argon2 hash, then rotate.
+  const record = await prisma.user.findUnique({
+    where: { id: session.appUser.id },
+    select: { password: true },
   });
-  if (signInError) {
+  if (!record?.password) {
+    // Account was provisioned via invite and never set a password — direct
+    // them to the reset flow instead of an in-app change.
+    return { ok: false, error: "No password is set for this account. Use “Forgot password” to set one." };
+  }
+  const valid = await verifyPassword(record.password, parsed.data.currentPassword);
+  if (!valid) {
     return { ok: false, error: "Current password is incorrect." };
   }
-  // Step 2 — perform the update via the service-role admin API. Supabase's
-  // user-scoped updateUser rejects password changes when "Secure password
-  // change" is on, even after a fresh signInWithPassword in the same
-  // server action — the cookie-bound session it operates against is the
-  // pre-existing one. Admin-API path bypasses that constraint, and we've
-  // already gated it on a successful current-password verification above.
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceKey) {
-    return { ok: false, error: "Server is not configured to rotate passwords. Contact support." };
-  }
-  const adminClient = createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    serviceKey,
-    { auth: { autoRefreshToken: false, persistSession: false } },
-  );
-  const { error } = await adminClient.auth.admin.updateUserById(session.authUser.id, {
-    password: parsed.data.password,
+
+  const password = await hashPassword(parsed.data.password);
+  await prisma.user.update({ where: { id: session.appUser.id }, data: { password } });
+
+  logAuditFireAndForget({
+    userId: session.appUser.id,
+    userEmail: session.authUser.email,
+    action: "auth.password_change",
+    resource: "User",
+    resourceId: session.appUser.id,
   });
-  if (error) return { ok: false, error: error.message };
+
   return { ok: true, message: "Password updated." };
 }
 

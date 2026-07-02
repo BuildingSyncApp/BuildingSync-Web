@@ -1,10 +1,9 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
-import { createClient } from "@/utils/supabase/server";
+import { hashPassword } from "@/lib/auth-core";
 import { prisma } from "@/lib/prisma";
 
 const ProfileBody = z.object({
@@ -38,13 +37,12 @@ export async function saveProfile(formData: FormData): Promise<Result> {
 }
 
 export async function savePassword(formData: FormData): Promise<Result> {
-  await requireUser();
+  const session = await requireUser();
   const parsed = PasswordBody.safeParse({ password: formData.get("password") });
   if (!parsed.success) {
     return { ok: false, error: "Password must be at least 8 characters." };
   }
-  const supabase = await createClient(await cookies());
-  const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
-  if (error) return { ok: false, error: error.message };
+  const password = await hashPassword(parsed.data.password);
+  await prisma.user.update({ where: { id: session.appUser.id }, data: { password } });
   return { ok: true };
 }

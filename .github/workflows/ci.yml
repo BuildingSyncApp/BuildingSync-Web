@@ -10,6 +10,34 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+
+    # Ephemeral Postgres for the integration tests. Without DATABASE_URL the
+    # DB-touching auth tests skip; with this service they run for real on every
+    # PR/push. Throwaway data — torn down with the job.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: buildingsync_test
+        ports:
+          - 5432:5432
+        # Wait until Postgres is accepting connections before steps run.
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # Single local DB for both the app runtime and migrations/DDL.
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/buildingsync_test
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/buildingsync_test
+      # Required by lib/auth-core for the session/action token tests.
+      AUTH_SECRET: ci-test-secret-at-least-32-characters-long
+      IMPERSONATION_SIGNING_SECRET: ci-test-impersonation-secret-32-chars-min
+
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -26,6 +54,16 @@ jobs:
       # pushing; CI runs the same.
       - name: Verify (prisma generate + typecheck)
         run: npm run verify
+
+      # Apply the schema to the ephemeral DB so the integration tests have real
+      # tables to write to.
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      # Unit + integration tests. With DATABASE_URL set (above) the DB-touching
+      # auth flow tests run instead of skipping.
+      - name: Test
+        run: npm test
 
       # ESLint now gates merges: the react-hooks backlog has been cleared and the
       # remaining over-strict React Compiler rules (set-state-in-effect, purity,

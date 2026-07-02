@@ -7,7 +7,7 @@ import { addStaff } from "./actions";
 import { roleLabel } from "@/components/RoleBadge";
 
 type Result =
-  | { ok: true; email: string; password: string | null; role: "facility_manager" | "concierge"; message: string }
+  | { ok: true; email: string; role: "facility_manager" | "concierge"; message: string }
   | { ok: false; error: string }
   | null;
 
@@ -16,14 +16,14 @@ const inputClass =
 
 export function AddStaffForm() {
   const [state, formAction, pending] = useActionState<Result, FormData>(addStaff, null);
-  const [copied, setCopied] = useState<"email" | "password" | null>(null);
+  const [copied, setCopied] = useState<"email" | null>(null);
 
   useEffect(() => {
     if (state?.ok) toast.success(`${roleLabel(state.role)} added`, { description: state.email });
     if (state && !state.ok) toast.error("Couldn't add staff", { description: state.error });
   }, [state]);
 
-  function copy(text: string, kind: "email" | "password") {
+  function copy(text: string, kind: "email") {
     if (!navigator.clipboard) return;
     navigator.clipboard.writeText(text);
     setCopied(kind);
@@ -83,25 +83,16 @@ export function AddStaffForm() {
             <p className="font-medium text-accent flex items-center gap-2">
               <span aria-hidden="true">✓</span> {state.message}
             </p>
-            {state.password && (
-              <div className="bg-card/60 border border-border rounded p-3 space-y-2">
-                <CredentialRow
-                  label="Email"
-                  value={state.email}
-                  copied={copied === "email"}
-                  onCopy={() => copy(state.email, "email")}
-                />
-                <CredentialRow
-                  label="Temp password"
-                  value={state.password}
-                  copied={copied === "password"}
-                  onCopy={() => copy(state.password!, "password")}
-                  highlight
-                />
-              </div>
-            )}
+            <div className="bg-card/60 border border-border rounded p-3">
+              <CredentialRow
+                label="Email"
+                value={state.email}
+                copied={copied === "email"}
+                onCopy={() => copy(state.email, "email")}
+              />
+            </div>
             <p className="text-xs text-muted-foreground">
-              We emailed a welcome link to {state.email}. If it doesn&apos;t arrive, share these credentials directly — they can sign in at /signin and rotate the password under Account.
+              We emailed a set-password invite to {state.email}. They choose their own password via the link, then sign in at /signin. The link expires in 7 days.
             </p>
           </motion.div>
         )}

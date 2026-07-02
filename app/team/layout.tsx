@@ -2,19 +2,26 @@ import { requireTeam } from "@/lib/team";
 import { PortalShell } from "@/components/PortalShell";
 import type { NavSection, MobileNavItem } from "@/components/MobileMenu";
 import { getNotifications } from "@/lib/notifications";
-import { ReverificationBanner } from "@/components/ReverificationBanner";
+import { AdvisoryBanner } from "@/components/AdvisoryBanner";
+import { getTeamAdvisories } from "@/lib/team-advisories";
 
 export default async function TeamLayout({ children }: { children: React.ReactNode }) {
   const { authUser, appUser } = await requireTeam();
-  const notifications = await getNotifications({
-    id: appUser.id,
-    role: appUser.role,
-    buildingId: appUser.buildingId,
-  }).catch((err) => {
-    // Don't 500 the whole layout if the activity feed query fails.
-    console.error("[team/layout] getNotifications failed", err);
-    return [];
-  });
+  const [notifications, advisories] = await Promise.all([
+    getNotifications({
+      id: appUser.id,
+      role: appUser.role,
+      buildingId: appUser.buildingId,
+    }).catch((err) => {
+      // Don't 500 the whole layout if the activity feed query fails.
+      console.error("[team/layout] getNotifications failed", err);
+      return [];
+    }),
+    getTeamAdvisories(appUser).catch((err) => {
+      console.error("[team/layout] getTeamAdvisories failed", err);
+      return [];
+    }),
+  ]);
 
   // L1 sections grouped by workflow. Each persona only sees the items
   // they're authorised for: concierge is read-only on most things and
@@ -36,6 +43,7 @@ export default async function TeamLayout({ children }: { children: React.ReactNo
 
   const property: MobileNavItem[] = [];
   if (isBM || isFM) property.push({ href: "/team/units", label: "Units" });
+  property.push({ href: "/team/amenities", label: "Amenities" });
   if (isBM) property.push({ href: "/team/announcements", label: "Announcements" });
   property.push({ href: "/team/documents", label: "Documents" });
 
@@ -65,16 +73,13 @@ export default async function TeamLayout({ children }: { children: React.ReactNo
       userRole={appUser.role}
       notifications={notifications}
     >
-      {/* BM-only re-verification banner. Self-hides until the next
-          review is within 60 days, so non-BM staff and freshly-
-          verified BMs see nothing. */}
-      {isBM && (
+      {/* Role-scoped rotating advisories (urgent WOs, overdue work,
+          pending verifications, re-verification due, …). Replaces the
+          old single-purpose ReverificationBanner — that condition is
+          now one advisory among the rest. */}
+      {advisories.length > 0 && (
         <div className="px-4 md:px-6 pt-4 max-w-7xl mx-auto">
-          <ReverificationBanner
-            nextDueAt={appUser.nextVerificationDue}
-            companyName={appUser.company}
-            email={authUser.email!}
-          />
+          <AdvisoryBanner items={advisories} />
         </div>
       )}
       {children}

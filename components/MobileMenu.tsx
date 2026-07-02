@@ -21,10 +21,13 @@ export function MobileMenu({
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
-  // Close on route change.
-  useEffect(() => {
+  // Close on route change — the "adjust state during render" pattern
+  // (guarded by a prev comparison) instead of a setState-in-effect.
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname);
     setOpen(false);
-  }, [pathname]);
+  }
 
   // Lock body scroll while open.
   useEffect(() => {

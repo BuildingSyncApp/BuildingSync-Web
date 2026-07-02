@@ -71,6 +71,54 @@ export function LocationPicker({
   const [reverseLoading, setReverseLoading] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
 
+  // Use OSM Nominatim (free, 1 req/sec). At signup volume this is fine;
+  // for higher-volume surfaces we'd swap in a paid geocoder.
+  async function reverseGeocode(lat: number, lng: number) {
+    setReverseLoading(true);
+    setHint(null);
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
+      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      if (!res.ok) throw new Error("nominatim non-200");
+      const data = await res.json();
+      const a = data.address ?? {};
+      const postcode: string = a.postcode ?? "";
+      const city: string = a.city ?? a.town ?? a.village ?? a.suburb ?? "";
+      const province: string = a.state ?? "";
+      const country: string = a.country_code ? (a.country_code as string).toUpperCase() : "";
+      const region = inferRegionCode(postcode, province, country);
+      onChange({
+        ...value,
+        latitude: lat,
+        longitude: lng,
+        postalCode: postcode ? (detectPostalKind(postcode) === "ca" ? normalizeCanadian(postcode) : postcode) : value.postalCode,
+        city: city || value.city,
+        region: region || value.region,
+      });
+      setHint("Address detected from map. Edit any field if it's wrong.");
+    } catch {
+      onChange({ ...value, latitude: lat, longitude: lng });
+      setHint("Couldn't auto-fill the address. Enter it below manually.");
+    } finally {
+      setReverseLoading(false);
+    }
+  }
+
+  function placePin(lat: number, lng: number) {
+    if (!mapRef.current || !window.L) return;
+    const L = window.L;
+    if (markerRef.current) {
+      markerRef.current.setLatLng([lat, lng]);
+    } else {
+      markerRef.current = L.marker([lat, lng], { draggable: true }).addTo(mapRef.current);
+      markerRef.current.on("dragend", () => {
+        const ll = markerRef.current!.getLatLng();
+        reverseGeocode(ll.lat, ll.lng);
+      });
+    }
+    reverseGeocode(lat, lng);
+  }
+
   // Inject Leaflet CSS once on mount (Next's <Script> handles the JS).
   useEffect(() => {
     if (document.querySelector(`link[href="${LEAFLET_CSS}"]`)) return;
@@ -136,54 +184,6 @@ export function LocationPicker({
     // component function used inside the drag handler.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value.latitude, value.longitude]);
-
-  function placePin(lat: number, lng: number) {
-    if (!mapRef.current || !window.L) return;
-    const L = window.L;
-    if (markerRef.current) {
-      markerRef.current.setLatLng([lat, lng]);
-    } else {
-      markerRef.current = L.marker([lat, lng], { draggable: true }).addTo(mapRef.current);
-      markerRef.current.on("dragend", () => {
-        const ll = markerRef.current!.getLatLng();
-        reverseGeocode(ll.lat, ll.lng);
-      });
-    }
-    reverseGeocode(lat, lng);
-  }
-
-  // Use OSM Nominatim (free, 1 req/sec). At signup volume this is fine;
-  // for higher-volume surfaces we'd swap in a paid geocoder.
-  async function reverseGeocode(lat: number, lng: number) {
-    setReverseLoading(true);
-    setHint(null);
-    try {
-      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
-      const res = await fetch(url, { headers: { Accept: "application/json" } });
-      if (!res.ok) throw new Error("nominatim non-200");
-      const data = await res.json();
-      const a = data.address ?? {};
-      const postcode: string = a.postcode ?? "";
-      const city: string = a.city ?? a.town ?? a.village ?? a.suburb ?? "";
-      const province: string = a.state ?? "";
-      const country: string = a.country_code ? (a.country_code as string).toUpperCase() : "";
-      const region = inferRegionCode(postcode, province, country);
-      onChange({
-        ...value,
-        latitude: lat,
-        longitude: lng,
-        postalCode: postcode ? (detectPostalKind(postcode) === "ca" ? normalizeCanadian(postcode) : postcode) : value.postalCode,
-        city: city || value.city,
-        region: region || value.region,
-      });
-      setHint("Address detected from map. Edit any field if it's wrong.");
-    } catch {
-      onChange({ ...value, latitude: lat, longitude: lng });
-      setHint("Couldn't auto-fill the address. Enter it below manually.");
-    } finally {
-      setReverseLoading(false);
-    }
-  }
 
   function updatePostal(raw: string) {
     const inferred = regionFromCanadianPostal(raw);

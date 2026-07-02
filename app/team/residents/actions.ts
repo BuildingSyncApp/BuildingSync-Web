@@ -1,32 +1,14 @@
 "use server";
 
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { requireTeam } from "@/lib/team";
 import { prisma } from "@/lib/prisma";
-import { sendEmail, sendEmailFireAndForget, welcomeEmail } from "@/lib/email";
+import { provisionUserWithInvite } from "@/lib/auth-actions";
 import { logAuditFireAndForget } from "@/lib/audit";
 import { can } from "@/lib/permissions";
 import { impersonationWriteGuard } from "@/lib/impersonation-server";
-
-// Server-side Supabase client with the SERVICE_ROLE key — required for
-// auth.admin.createUser. Never expose this client to the browser.
-// Returns null when the env var is missing so callers can surface a
-// clear error instead of the supabase-js constructor throwing inside
-// the server action (which surfaces as a generic 500 to the form).
-function adminSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return null;
-  return createSupabaseClient(url, key, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-}
-
-const MISSING_SERVICE_KEY_ERROR =
-  "Server is missing SUPABASE_SERVICE_ROLE_KEY. Add it in Vercel → Project → Settings → Environment Variables, then redeploy.";
 
 const Body = z.object({
   email: z.string().email().toLowerCase(),
@@ -35,7 +17,7 @@ const Body = z.object({
 });
 
 type Result =
-  | { ok: true; email: string; password: string | null; message: string }
+  | { ok: true; email: string; message: string }
   | { ok: false; error: string };
 
 export async function addResident(_prev: unknown, formData: FormData): Promise<Result> {
@@ -43,7 +25,7 @@ export async function addResident(_prev: unknown, formData: FormData): Promise<R
   if (!can(session.appUser, "resident.manage")) {
     return { ok: false, error: "Only Building Managers and Facility Managers can add residents." };
   }
-  // Creates a real Supabase auth user + sends credentials — never while impersonating.
+  // Creates a real account + emails a set-password invite — never while impersonating.
   const impBlock = await impersonationWriteGuard({ irreversible: true });
   if (impBlock) return { ok: false, error: impBlock };
   if (!session.appUser.buildingId) {
@@ -90,70 +72,44 @@ export async function addResident(_prev: unknown, formData: FormData): Promise<R
       changes: { before, after: { role, buildingId: session.appUser.buildingId, unitId } },
     });
     revalidatePath("/team/residents");
-    return { ok: true, email, password: null, message: `Re-linked existing account.` };
+    return { ok: true, email, message: `Re-linked existing account.` };
   }
 
-  // New user — create via Supabase admin API. email_confirm:true skips
-  // Supabase's confirmation email; we send our own branded welcome via Resend.
-  const password = generatePassword();
-  const supabase = adminSupabase();
-  if (!supabase) {
-    return { ok: false, error: MISSING_SERVICE_KEY_ERROR };
-  }
-  const { data, error } = await supabase.auth.admin.createUser({
+  // New user — create a passwordless account + email a signed set-password
+  // invite (lib/auth-actions). The resident chooses their own password via
+  // the link; we never generate or email a plaintext password.
+  const building = await prisma.building.findUnique({
+    where: { id: session.appUser.buildingId },
+    select: { name: true },
+  });
+  const provisioned = await provisionUserWithInvite({
     email,
-    password,
-    email_confirm: true,
+    role,
+    buildingId: session.appUser.buildingId,
+    unitId,
+    buildingName: building?.name ?? null,
+    invitedByLabel: session.appUser.name ?? session.appUser.email,
   });
-  if (error || !data.user?.id) {
-    return { ok: false, error: error?.message || "Supabase didn't return a user id." };
+  if (!provisioned.ok) {
+    return { ok: false, error: provisioned.error };
   }
-
-  await prisma.user.create({
-    data: {
-      id: data.user.id,
-      email,
-      role,
-      buildingId: session.appUser.buildingId,
-      unitId: unitId,
-    },
-  });
 
   logAuditFireAndForget({
     userId: session.appUser.id,
     userEmail: session.appUser.email,
     action: "user.create",
     resource: "User",
-    resourceId: data.user.id,
+    resourceId: provisioned.userId,
     buildingId: session.appUser.buildingId,
     changes: { email, role, buildingId: session.appUser.buildingId, unitId },
-  });
-
-  // Welcome email with temp password + sign-in link. Fire-and-forget so
-  // a slow / failed Resend call never blocks the form — the BM still
-  // sees the temp password in the success card and can share it
-  // manually if email bounces (the response card has Copy buttons).
-  const building = await prisma.building.findUnique({
-    where: { id: session.appUser.buildingId },
-    select: { name: true },
-  });
-  sendEmailFireAndForget({
-    to: email,
-    ...welcomeEmail({ email, password, buildingName: building?.name ?? null, role }),
   });
 
   revalidatePath("/team/residents");
   return {
     ok: true,
     email,
-    password,
-    message: "Account created and welcome email sent. Share the temporary password if email doesn't arrive.",
+    message: "Account created and an invite email sent. They'll set their own password via the link.",
   };
-}
-
-function generatePassword(): string {
-  // 14-char alphanumeric, easy to share verbally / over chat.
-  return randomBytes(12).toString("base64").replace(/[+/=lI0Oo]/g, "").slice(0, 14);
 }
 
 // ─── Leases ──────────────────────────────────────────────────────────────
@@ -311,7 +267,7 @@ export async function archiveLease(_prev: unknown, formData: FormData): Promise<
 
 const CSV_ROLE_DEFAULT: "resident" | "tenant" = "resident";
 
-type BulkRowOk = { row: number; email: string; password: string | null; status: "created" | "linked" };
+type BulkRowOk = { row: number; email: string; status: "created" | "linked" };
 type BulkRowErr = { row: number; email: string; error: string };
 type BulkResult =
   | { ok: true; created: number; linked: number; rows: BulkRowOk[]; errors: BulkRowErr[] }
@@ -322,7 +278,7 @@ export async function bulkAddResidents(_prev: unknown, formData: FormData): Prom
   if (!can(session.appUser, "resident.manage")) {
     return { ok: false, error: "Only Building Managers and Facility Managers can bulk-onboard residents." };
   }
-  // Creates real Supabase auth users + sends credentials — never while impersonating.
+  // Creates real accounts + emails set-password invites — never while impersonating.
   const impBlock = await impersonationWriteGuard({ irreversible: true });
   if (impBlock) return { ok: false, error: impBlock };
   if (!session.appUser.buildingId) {
@@ -347,10 +303,6 @@ export async function bulkAddResidents(_prev: unknown, formData: FormData): Prom
   });
   const unitByNumber = new Map(units.map((u) => [u.unitNumber.toLowerCase(), u.id]));
 
-  const supabase = adminSupabase();
-  if (!supabase) {
-    return { ok: false, error: MISSING_SERVICE_KEY_ERROR };
-  }
   const building = await prisma.building.findUnique({
     where: { id: session.appUser.buildingId },
     select: { name: true },
@@ -402,42 +354,113 @@ export async function bulkAddResidents(_prev: unknown, formData: FormData): Prom
         buildingId: session.appUser.buildingId,
         changes: { before, after: linkData, row: rowNum },
       });
-      rows.push({ row: rowNum, email, password: null, status: "linked" });
+      rows.push({ row: rowNum, email, status: "linked" });
       linked++;
       continue;
     }
 
-    const password = generatePassword();
-    const { data, error: createError } = await supabase.auth.admin.createUser({
+    // New account + set-password invite email (sent inside provisionUser).
+    const provisioned = await provisionUserWithInvite({
       email,
-      password,
-      email_confirm: true,
+      role,
+      buildingId: session.appUser.buildingId,
+      unitId: linkData.unitId,
+      buildingName: building?.name ?? null,
+      invitedByLabel: session.appUser.name ?? session.appUser.email,
     });
-    if (createError || !data.user?.id) {
-      errors.push({ row: rowNum, email, error: createError?.message || "createUser returned no user id" });
+    if (!provisioned.ok) {
+      errors.push({ row: rowNum, email, error: provisioned.error });
       continue;
     }
-    await prisma.user.create({
-      data: { id: data.user.id, email, ...linkData },
-    });
     logAuditFireAndForget({
       userId: session.appUser.id,
       userEmail: session.appUser.email,
       action: "user.bulk_create",
       resource: "User",
-      resourceId: data.user.id,
+      resourceId: provisioned.userId,
       buildingId: session.appUser.buildingId,
       changes: { email, ...linkData, row: rowNum },
     });
-    // Fire welcome email; don't fail the row if it errors (BM still sees the temp password in the response).
-    sendEmail({
-      to: email,
-      ...welcomeEmail({ email, password, buildingName: building?.name ?? null, role }),
-    }).catch((err) => console.error("[bulk-onboard] welcome email failed", email, err));
-    rows.push({ row: rowNum, email, password, status: "created" });
+    rows.push({ row: rowNum, email, status: "created" });
     created++;
   }
 
   revalidatePath("/team/residents");
   return { ok: true, created, linked, rows, errors };
+}
+
+// ─── Offline payment recording ────────────────────────────────────────
+// Rent/maintenance money often moves outside the app (e-transfer, cheque,
+// cash at the office) — cheaper for the building than card processing.
+// Recording those payments here keeps the collections dashboards truthful
+// without forcing anyone through Stripe fees. BM-only: money stays a
+// Building Manager concern (FM/concierge never see it).
+
+const OfflinePaymentBody = z.object({
+  leaseId: z.string().min(1),
+  amount: z.coerce.number().positive().max(1_000_000),
+  method: z.enum(["e_transfer", "cheque", "cash"]),
+  paidOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a payment date"),
+});
+
+type PaymentResult = { ok: true; message: string } | { ok: false; error: string };
+
+export async function recordOfflinePayment(_prev: unknown, formData: FormData): Promise<PaymentResult> {
+  const session = await requireTeam();
+  if (session.appUser.role !== "building_manager") {
+    return { ok: false, error: "Only Building Managers can record payments." };
+  }
+  const impBlock = await impersonationWriteGuard({});
+  if (impBlock) return { ok: false, error: impBlock };
+  if (!session.appUser.buildingId) {
+    return { ok: false, error: "Your account is not linked to a building." };
+  }
+
+  const parsed = OfflinePaymentBody.safeParse({
+    leaseId: formData.get("leaseId"),
+    amount: formData.get("amount"),
+    method: formData.get("method"),
+    paidOn: formData.get("paidOn"),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues.map((i) => i.message).join("; ") };
+  }
+  const { leaseId, amount, method, paidOn } = parsed.data;
+
+  const lease = await prisma.lease.findUnique({ where: { id: leaseId } });
+  if (!lease || lease.buildingId !== session.appUser.buildingId || lease.archivedAt) {
+    return { ok: false, error: "Lease not found in your building." };
+  }
+
+  // Noon avoids the date sliding a day under timezone conversion.
+  const paidAt = new Date(`${paidOn}T12:00:00`);
+  if (Number.isNaN(paidAt.getTime())) return { ok: false, error: "Invalid payment date." };
+
+  const paymentId = randomUUID();
+  await prisma.payment.create({
+    data: {
+      id: paymentId,
+      buildingId: lease.buildingId,
+      userId: lease.tenantId,
+      amount,
+      currency: "CAD",
+      status: "succeeded",
+      method,
+      paidAt,
+    },
+  });
+
+  logAuditFireAndForget({
+    userId: session.appUser.id,
+    userEmail: session.appUser.email,
+    action: "payment.record_offline",
+    resource: "Payment",
+    resourceId: paymentId,
+    buildingId: lease.buildingId,
+    changes: { after: { leaseId, amount, method, paidOn } },
+  });
+
+  revalidatePath("/team/residents");
+  revalidatePath("/team");
+  return { ok: true, message: "Payment recorded." };
 }

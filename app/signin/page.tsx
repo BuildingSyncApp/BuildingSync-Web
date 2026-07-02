@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { createClient } from "@/utils/supabase/client";
+import { loginUser, requestPasswordReset } from "@/lib/auth-actions";
 import { AuthShell } from "@/components/AuthShell";
 import { resolvePortalUrl } from "./actions";
 
@@ -55,7 +55,6 @@ function SignInFallback() {
 
 function SignInPageInner() {
   const searchParams = useSearchParams();
-  const supabase = createClient();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -85,20 +84,10 @@ function SignInPageInner() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const result = await loginUser(email, password);
     setLoading(false);
-    if (error) {
-      const code = (error as { code?: string }).code;
-      if (code === "email_not_confirmed") {
-        setError("Check your inbox to confirm this email before signing in.");
-      } else if (error.message.toLowerCase().includes("invalid login")) {
-        setError("Email or password is incorrect. Try again, or use Forgot? to reset.");
-      } else {
-        setError(error.message);
-      }
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
     toast.success("Welcome back", { description: email });
@@ -119,10 +108,9 @@ function SignInPageInner() {
       return;
     }
     // Hard navigation in all cases. router.push/refresh can race with the
-    // freshly-set Supabase auth cookies, leaving the destination route
-    // rendered without the new session and bouncing back to /signin.
-    // window.location.href forces a full reload, guaranteeing every
-    // subsequent request carries the cookies.
+    // freshly-set session cookie, leaving the destination route rendered
+    // without the new session and bouncing back to /signin. A full reload
+    // guarantees every subsequent request carries the cookie.
     window.location.href = dest;
   }
 
@@ -131,15 +119,14 @@ function SignInPageInner() {
     setResetError(null);
     setResetMessage(null);
     setResetLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-      redirectTo: `${window.location.origin}/auth/reset`,
-    });
+    const result = await requestPasswordReset(resetEmail);
     setResetLoading(false);
-    if (error) {
-      setResetError(error.message);
+    if (!result.ok) {
+      setResetError(result.error);
       return;
     }
-    setResetMessage(`Check ${resetEmail} for a password reset link. It expires in 1 hour.`);
+    // Uniform message — the server never reveals whether the account exists.
+    setResetMessage(`If an account exists for ${resetEmail}, a password reset link is on its way. It expires in 1 hour.`);
   }
 
   function startReset() {

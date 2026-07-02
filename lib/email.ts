@@ -140,6 +140,46 @@ export function announcementBroadcastEmail(args: {
   };
 }
 
+// Self-service password reset. Sent by lib/auth-actions requestPasswordReset.
+// The link carries a signed, self-expiring token (lib/auth-core) — single-use
+// once the password changes.
+export function passwordResetEmail(args: { url: string }) {
+  const { url } = args;
+  const html = wrap(`
+<h1 style="font-size:22px;margin:0 0 8px;">Reset your password</h1>
+<p>We received a request to reset the password for your ${escapeHtml(brand.name)} account.</p>
+<p style="margin-top:16px;"><a href="${url}" style="display:inline-block;background:#141414;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;">Choose a new password</a></p>
+<p style="font-size:13px;color:#666;margin-top:16px;">This link expires in one hour. If you didn't ask to reset your password, you can safely ignore this email — your current password stays in place.</p>`);
+  return {
+    subject: `Reset your ${brand.name} password`,
+    html,
+    text: `Reset your ${brand.name} password\n\nOpen this link to choose a new password (expires in 1 hour):\n${url}\n\nIf you didn't request this, ignore this email.`,
+  };
+}
+
+// Account-provisioning invite. Sent by lib/auth-actions provisionUserWithInvite
+// when a manager adds a resident/staff member. The recipient sets their own
+// password via the signed link — we never email or store a plaintext password.
+export function setPasswordInviteEmail(args: {
+  url: string;
+  buildingName: string | null;
+  role: string;
+  invitedByLabel: string | null;
+}) {
+  const { url, buildingName, role, invitedByLabel } = args;
+  const roleLabel = formatStatus(role);
+  const html = wrap(`
+<h1 style="font-size:22px;margin:0 0 8px;">You've been added to ${escapeHtml(brand.name)}</h1>
+<p>${invitedByLabel ? `${escapeHtml(invitedByLabel)} added you` : "You've been added"} as a <strong>${escapeHtml(roleLabel)}</strong>${buildingName ? ` at <strong>${escapeHtml(buildingName)}</strong>` : ""}.</p>
+<p style="margin-top:16px;"><a href="${url}" style="display:inline-block;background:#141414;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;">Set your password &amp; sign in</a></p>
+<p style="font-size:13px;color:#666;margin-top:16px;">This invite link expires in 7 days. Choosing a password activates your account.</p>`);
+  return {
+    subject: `You've been added to ${brand.name}${buildingName ? ` — ${buildingName}` : ""}`,
+    html,
+    text: `You've been added to ${brand.name}${buildingName ? ` at ${buildingName}` : ""} as a ${roleLabel}.\n\nSet your password and sign in (link expires in 7 days):\n${url}`,
+  };
+}
+
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }

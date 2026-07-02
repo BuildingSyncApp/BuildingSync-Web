@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { bulkAddResidents } from "./actions";
 
@@ -9,7 +9,7 @@ type Result =
       ok: true;
       created: number;
       linked: number;
-      rows: Array<{ row: number; email: string; password: string | null; status: "created" | "linked" }>;
+      rows: Array<{ row: number; email: string; status: "created" | "linked" }>;
       errors: Array<{ row: number; email: string; error: string }>;
     }
   | { ok: false; error: string }
@@ -25,18 +25,6 @@ const inputClass =
 
 export function BulkAddForm() {
   const [state, formAction, pending] = useActionState<Result, FormData>(bulkAddResidents, null);
-  const [copiedAll, setCopiedAll] = useState(false);
-
-  function copyAll(rows: NonNullable<Extract<Result, { ok: true }>>["rows"]) {
-    if (!navigator.clipboard) return;
-    const text = rows
-      .filter((r) => r.password)
-      .map((r) => `${r.email},${r.password}`)
-      .join("\n");
-    navigator.clipboard.writeText(text);
-    setCopiedAll(true);
-    setTimeout(() => setCopiedAll(false), 1500);
-  }
 
   return (
     <form action={formAction} className="mt-4 space-y-4">
@@ -102,27 +90,18 @@ export function BulkAddForm() {
               )}
             </p>
 
-            {state.rows.filter((r) => r.password).length > 0 && (
+            {state.rows.filter((r) => r.status === "created").length > 0 && (
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Temporary passwords
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => copyAll(state.rows)}
-                    className="px-2 py-1 rounded text-[10px] uppercase tracking-wider border border-border hover:border-accent hover:text-accent transition-colors"
-                  >
-                    {copiedAll ? "Copied" : "Copy all"}
-                  </button>
-                </div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                  Invites sent
+                </p>
                 <div className="font-mono text-xs space-y-1 bg-background/40 border border-border rounded p-3 max-h-48 overflow-y-auto">
                   {state.rows
-                    .filter((r) => r.password)
+                    .filter((r) => r.status === "created")
                     .map((r) => (
                       <div key={r.row} className="flex justify-between gap-3">
                         <span className="select-all truncate min-w-0">{r.email}</span>
-                        <span className="select-all text-accent shrink-0">{r.password}</span>
+                        <span className="text-accent shrink-0">set-password invite emailed</span>
                       </div>
                     ))}
                 </div>

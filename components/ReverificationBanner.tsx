@@ -21,6 +21,11 @@ function urgencyFor(daysOut: number): Urgency | null {
   return "overdue";
 }
 
+// Server component — evaluated per request, so "now" is request time.
+function daysUntil(date: Date): number {
+  return Math.round((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+}
+
 const STYLES: Record<Urgency, { bg: string; border: string; text: string; dot: string }> = {
   info: {
     bg: "bg-sky-500/5",
@@ -52,8 +57,7 @@ export function ReverificationBanner({
   email: string;
 }) {
   if (!nextDueAt) return null;
-  const now = Date.now();
-  const daysOut = Math.round((nextDueAt.getTime() - now) / (1000 * 60 * 60 * 24));
+  const daysOut = daysUntil(nextDueAt);
   const urgency = urgencyFor(daysOut);
   if (!urgency) return null;
 

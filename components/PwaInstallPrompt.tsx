@@ -24,7 +24,16 @@ export function PwaInstallPrompt() {
   const pathname = usePathname();
   const [show, setShow] = useState(false);
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isIOS, setIsIOS] = useState(false);
+  // Constant per browser — lazy init instead of a setState-in-effect.
+  // Safe for hydration: it only affects markup after `show` flips, which
+  // happens post-mount (timer / beforeinstallprompt event).
+  const [isIOS] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const ua = window.navigator.userAgent;
+    const iOS = /iPad|iPhone|iPod/.test(ua);
+    const safari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
+    return iOS && safari;
+  });
 
   const isPostLogin = POST_LOGIN_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(p + "/"),
@@ -43,15 +52,10 @@ export function PwaInstallPrompt() {
     if (window.matchMedia("(display-mode: standalone)").matches) return;
     if ((window.navigator as Navigator & { standalone?: boolean }).standalone) return;
 
-    // iOS Safari detection (UA-based; iOS doesn't fire beforeinstallprompt)
-    const ua = window.navigator.userAgent;
-    const iOS = /iPad|iPhone|iPod/.test(ua);
-    const safari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
-    const ios = iOS && safari;
-    setIsIOS(ios);
-
+    // iOS Safari never fires beforeinstallprompt — show the manual hint
+    // after a short delay instead.
     let iosTimer: ReturnType<typeof setTimeout> | null = null;
-    if (ios) {
+    if (isIOS) {
       iosTimer = setTimeout(() => setShow(true), 3500);
     }
 
@@ -66,7 +70,7 @@ export function PwaInstallPrompt() {
       if (iosTimer) clearTimeout(iosTimer);
       window.removeEventListener("beforeinstallprompt", handler);
     };
-  }, [isPostLogin]);
+  }, [isPostLogin, isIOS]);
 
   function dismiss() {
     setShow(false);

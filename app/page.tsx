@@ -1,8 +1,8 @@
-import { cookies, headers } from "next/headers";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { createClient } from "@/utils/supabase/server";
+import { readSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { LinkButton, Wordmark } from "@/components/ui";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -39,18 +39,17 @@ export default async function Home({ searchParams }: { searchParams: SP }) {
   const isAdminHost = host === ADMIN_HOST || host.startsWith("admin.");
   const visitorCountry = readVisitorCountry(h);
 
-  const supabase = await createClient(await cookies());
-  const { data: { user } } = await supabase.auth.getUser();
+  const session = await readSession();
 
   const params = await searchParams;
   let portalUrl: string | null = null;
   let portalLabel = "Continue";
-  if (user) {
+  if (session) {
     // Defensive: a Prisma error here (e.g. a schema-vs-DB mismatch we
     // haven't caught yet) shouldn't 500 the public landing. Worst case
     // we render the anonymous landing and the user re-clicks Sign in.
     const appUser = await prisma.user
-      .findUnique({ where: { id: user.id } })
+      .findUnique({ where: { id: session.sub } })
       .catch((err) => {
         console.error("[home] prisma.user.findUnique failed", err);
         return null;
@@ -233,7 +232,7 @@ function Hero({
 const PATHWAYS = [
   {
     title: "Facility Manager",
-    subtitle: "Operational uptime and SLA control",
+    subtitle: "Operational uptime and response-time control",
     bullets: ["Work orders", "Status updates", "Vendor visibility"],
   },
   {
