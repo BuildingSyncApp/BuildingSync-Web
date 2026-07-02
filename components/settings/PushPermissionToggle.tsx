@@ -22,42 +22,44 @@ function urlBase64ToArrayBuffer(b64: string): ArrayBuffer {
 
 type Status = "loading" | "unsupported" | "denied" | "subscribed" | "available" | "needs-pwa";
 
+async function detectStatus(): Promise<Status> {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+    return "unsupported";
+  }
+
+  // iOS Safari only allows push for installed PWAs — outside
+  // standalone mode the permission prompt never appears.
+  const ua = window.navigator.userAgent;
+  const isIos = /iPad|iPhone|iPod/.test(ua);
+  const standalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+  if (isIos && !standalone) return "needs-pwa";
+
+  if (Notification.permission === "denied") return "denied";
+
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    return sub ? "subscribed" : "available";
+  } catch {
+    return "available";
+  }
+}
+
 export function PushPermissionToggle({ vapidPublicKey }: { vapidPublicKey: string | null }) {
   const [status, setStatus] = useState<Status>("loading");
   const [pending, startTransition] = useTransition();
   const [testing, startTest] = useTransition();
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
-      setStatus("unsupported");
-      return;
-    }
-
-    // iOS Safari only allows push for installed PWAs — outside
-    // standalone mode the permission prompt never appears.
-    const ua = window.navigator.userAgent;
-    const isIos = /iPad|iPhone|iPod/.test(ua);
-    const standalone =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
-    if (isIos && !standalone) {
-      setStatus("needs-pwa");
-      return;
-    }
-
-    if (Notification.permission === "denied") {
-      setStatus("denied");
-      return;
-    }
-
-    navigator.serviceWorker.ready
-      .then((reg) => reg.pushManager.getSubscription())
-      .then((sub) => {
-        setStatus(sub ? "subscribed" : "available");
-      })
-      .catch(() => setStatus("available"));
+    let cancelled = false;
+    detectStatus().then((s) => {
+      if (!cancelled) setStatus(s);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   function enable() {

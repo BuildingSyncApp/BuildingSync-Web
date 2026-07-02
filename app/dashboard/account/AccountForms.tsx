@@ -158,20 +158,25 @@ export function RegionForm({
 }
 
 export function PasswordForm() {
-  const [state, formAction, pending] = useActionState<Result, FormData>(updatePassword, null);
   const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const strength = useMemo(() => passwordStrength(password), [password]);
-
-  useEffect(() => {
-    if (state?.ok) {
-      toast.success("Password updated", { description: "You'll use the new password next time." });
-      setCurrentPassword("");
-      setPassword("");
-    }
-    if (state && !state.ok) toast.error("Couldn't update password", { description: state.error });
-  }, [state]);
+  // Toast + field reset live inside the action (not an effect) — actions
+  // run in a transition, so setState here doesn't cascade renders.
+  const [state, formAction, pending] = useActionState<Result, FormData>(
+    async (prev, formData) => {
+      const result = await updatePassword(prev, formData);
+      if (result?.ok) {
+        toast.success("Password updated", { description: "You'll use the new password next time." });
+        setCurrentPassword("");
+        setPassword("");
+      }
+      if (result && !result.ok) toast.error("Couldn't update password", { description: result.error });
+      return result;
+    },
+    null,
+  );
 
   return (
     <form action={formAction} className="space-y-4">

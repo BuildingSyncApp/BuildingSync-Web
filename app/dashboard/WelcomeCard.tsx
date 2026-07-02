@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
+import { useLocalStorageValue } from "@/components/useLocalStorageValue";
 
 // First-run welcome banner. Dismissible; remembers via localStorage so
 // it doesn't reappear every page load. Designed for older / new users
@@ -10,21 +11,16 @@ import Link from "next/link";
 const STORAGE_KEY = "bs-dashboard-welcome-dismissed-v1";
 
 export function WelcomeCard({ firstName }: { firstName: string }) {
-  const [show, setShow] = useState(false);
+  const [dismissedAt, setDismissedAt] = useLocalStorageValue(STORAGE_KEY);
+  const [dismissedNow, setDismissedNow] = useState(false);
 
-  useEffect(() => {
-    try {
-      if (!window.localStorage.getItem(STORAGE_KEY)) setShow(true);
-    } catch {
-      // localStorage blocked (private mode etc.) — don't show
-    }
-  }, []);
+  // Show only once we know the key is absent (`null`); `undefined` means
+  // SSR / storage blocked — don't show.
+  const show = !dismissedNow && dismissedAt === null;
 
   function dismiss() {
-    setShow(false);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, String(Date.now()));
-    } catch {}
+    setDismissedNow(true);
+    setDismissedAt(String(Date.now()));
   }
 
   if (!show) return null;

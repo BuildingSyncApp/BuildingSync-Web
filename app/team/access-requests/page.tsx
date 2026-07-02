@@ -22,12 +22,17 @@ import { InviteCodePanel } from "./InviteCodePanel";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
+// Server component — evaluated per request, so "now" is request time.
+function recentWindowStart(): Date {
+  return new Date(Date.now() - THIRTY_DAYS_MS);
+}
+
 export default async function AccessRequestsPage() {
   const { appUser } = await requireTeam();
   if (!can(appUser, "access_request.manage")) redirect("/team");
   if (!appUser.buildingId) redirect("/team");
 
-  const since = new Date(Date.now() - THIRTY_DAYS_MS);
+  const since = recentWindowStart();
 
   const [building, pendingVerifications, recentResidents, activeStaff] = await Promise.all([
     prisma.building

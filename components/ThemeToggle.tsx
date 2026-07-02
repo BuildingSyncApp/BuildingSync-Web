@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useLocalStorageValue } from "@/components/useLocalStorageValue";
 
 const THEMES = ["paper", "light", "dark"] as const;
 type Theme = (typeof THEMES)[number];
@@ -12,22 +12,12 @@ const THEME_LABEL: Record<Theme, string> = {
 };
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>("paper");
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    const saved = (localStorage.getItem("bs-theme") as Theme | null) || "paper";
-    setTheme(saved);
-    setMounted(true);
-  }, []);
+  const [saved, setSaved] = useLocalStorageValue("bs-theme");
+  const theme: Theme =
+    saved && (THEMES as readonly string[]).includes(saved) ? (saved as Theme) : "paper";
 
   function apply(next: Theme) {
-    setTheme(next);
-    try {
-      localStorage.setItem("bs-theme", next);
-    } catch {
-      // localStorage may be blocked; theme just resets per page.
-    }
+    setSaved(next);
     const html = document.documentElement;
     html.classList.remove("dark");
     html.removeAttribute("data-theme");
@@ -36,8 +26,8 @@ export function ThemeToggle() {
     // light = no attribute (the :root default)
   }
 
-  if (!mounted) {
-    // Avoid hydration mismatch — render an inert placeholder until effect runs.
+  if (saved === undefined) {
+    // Avoid hydration mismatch — inert placeholder until the stored theme is known.
     return <div className="h-7 w-[150px] rounded-md border border-border" aria-hidden />;
   }
 

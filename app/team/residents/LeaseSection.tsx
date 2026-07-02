@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -39,18 +39,23 @@ export function LeaseSection({
   leases: Lease[];
 }) {
   const router = useRouter();
-  const [state, formAction, pending] = useActionState<AddResult, FormData>(addLease, null);
   const [archivePending, startArchive] = useTransition();
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    if (state?.ok) {
-      toast.success("Lease recorded");
-      setOpen(false);
-      router.refresh();
-    }
-    if (state && !state.ok) toast.error("Couldn't record lease", { description: state.error });
-  }, [state, router]);
+  // Toast + collapse live inside the action (not an effect) — actions run
+  // in a transition, so setState here doesn't cascade renders.
+  const [state, formAction, pending] = useActionState<AddResult, FormData>(
+    async (prev, formData) => {
+      const result = await addLease(prev, formData);
+      if (result?.ok) {
+        toast.success("Lease recorded");
+        setOpen(false);
+        router.refresh();
+      }
+      if (result && !result.ok) toast.error("Couldn't record lease", { description: result.error });
+      return result;
+    },
+    null,
+  );
 
   function endLease(leaseId: string, label: string) {
     if (!confirm(`End the active lease for ${label}? This unlocks the unit for a new lease.`)) return;

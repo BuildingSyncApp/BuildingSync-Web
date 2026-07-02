@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { registerUser } from "@/lib/auth-actions";
 import { AuthShell } from "@/components/AuthShell";
@@ -44,6 +44,7 @@ const DEFAULT_LOCATION: LocationValue = {
 
 export default function SignUpPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState<Step>(1);
 
   // Account
@@ -54,7 +55,8 @@ export default function SignUpPage() {
   // Profile
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
+  // Invite links land here as /signup?code=XXXXXX — prefill from the URL.
+  const [inviteCode, setInviteCode] = useState(() => normalizeInviteCode(searchParams.get("code") ?? ""));
   const [roleIntent, setRoleIntent] = useState<RoleIntent>("resident_or_tenant");
 
   // BM-only verification fields
@@ -70,12 +72,6 @@ export default function SignUpPage() {
   const [isHuman, setIsHuman] = useState(false);
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [companyHoneypot, setCompanyHoneypot] = useState("");
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get("code");
-    if (code) setInviteCode(normalizeInviteCode(code));
-  }, []);
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);

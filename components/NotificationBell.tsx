@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLocalStorageValue } from "@/components/useLocalStorageValue";
 
 export type NotificationItem = {
   id: string;
@@ -49,13 +50,12 @@ function bucketFor(createdAt: string, now: Date): "today" | "yesterday" | "earli
 
 export function NotificationBell({ items }: { items: NotificationItem[] }) {
   const [open, setOpen] = useState(false);
-  const [lastSeen, setLastSeen] = useState<number>(0);
+  const [lastSeenRaw, setLastSeenRaw] = useLocalStorageValue(LAST_SEEN_KEY);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const v = window.localStorage.getItem(LAST_SEEN_KEY);
-    setLastSeen(v ? Number(v) : 0);
-  }, []);
+  // `undefined` = SSR / storage unknown → show no badge yet; `null` =
+  // never marked read → everything counts as new.
+  const lastSeen = lastSeenRaw === undefined ? Number.POSITIVE_INFINITY : Number(lastSeenRaw || 0);
 
   useEffect(() => {
     if (!open) return;
@@ -79,9 +79,7 @@ export function NotificationBell({ items }: { items: NotificationItem[] }) {
   }
 
   function markAllRead() {
-    const now = Date.now();
-    window.localStorage.setItem(LAST_SEEN_KEY, String(now));
-    setLastSeen(now);
+    setLastSeenRaw(String(Date.now()));
   }
 
   const unreadCount = items.filter((i) => new Date(i.createdAt).getTime() > lastSeen).length;
