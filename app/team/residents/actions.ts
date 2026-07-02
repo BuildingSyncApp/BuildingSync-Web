@@ -388,3 +388,79 @@ export async function bulkAddResidents(_prev: unknown, formData: FormData): Prom
   revalidatePath("/team/residents");
   return { ok: true, created, linked, rows, errors };
 }
+
+// ─── Offline payment recording ────────────────────────────────────────
+// Rent/maintenance money often moves outside the app (e-transfer, cheque,
+// cash at the office) — cheaper for the building than card processing.
+// Recording those payments here keeps the collections dashboards truthful
+// without forcing anyone through Stripe fees. BM-only: money stays a
+// Building Manager concern (FM/concierge never see it).
+
+const OfflinePaymentBody = z.object({
+  leaseId: z.string().min(1),
+  amount: z.coerce.number().positive().max(1_000_000),
+  method: z.enum(["e_transfer", "cheque", "cash"]),
+  paidOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a payment date"),
+});
+
+type PaymentResult = { ok: true; message: string } | { ok: false; error: string };
+
+export async function recordOfflinePayment(_prev: unknown, formData: FormData): Promise<PaymentResult> {
+  const session = await requireTeam();
+  if (session.appUser.role !== "building_manager") {
+    return { ok: false, error: "Only Building Managers can record payments." };
+  }
+  const impBlock = await impersonationWriteGuard({});
+  if (impBlock) return { ok: false, error: impBlock };
+  if (!session.appUser.buildingId) {
+    return { ok: false, error: "Your account is not linked to a building." };
+  }
+
+  const parsed = OfflinePaymentBody.safeParse({
+    leaseId: formData.get("leaseId"),
+    amount: formData.get("amount"),
+    method: formData.get("method"),
+    paidOn: formData.get("paidOn"),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues.map((i) => i.message).join("; ") };
+  }
+  const { leaseId, amount, method, paidOn } = parsed.data;
+
+  const lease = await prisma.lease.findUnique({ where: { id: leaseId } });
+  if (!lease || lease.buildingId !== session.appUser.buildingId || lease.archivedAt) {
+    return { ok: false, error: "Lease not found in your building." };
+  }
+
+  // Noon avoids the date sliding a day under timezone conversion.
+  const paidAt = new Date(`${paidOn}T12:00:00`);
+  if (Number.isNaN(paidAt.getTime())) return { ok: false, error: "Invalid payment date." };
+
+  const paymentId = randomUUID();
+  await prisma.payment.create({
+    data: {
+      id: paymentId,
+      buildingId: lease.buildingId,
+      userId: lease.tenantId,
+      amount,
+      currency: "CAD",
+      status: "succeeded",
+      method,
+      paidAt,
+    },
+  });
+
+  logAuditFireAndForget({
+    userId: session.appUser.id,
+    userEmail: session.appUser.email,
+    action: "payment.record_offline",
+    resource: "Payment",
+    resourceId: paymentId,
+    buildingId: lease.buildingId,
+    changes: { after: { leaseId, amount, method, paidOn } },
+  });
+
+  revalidatePath("/team/residents");
+  revalidatePath("/team");
+  return { ok: true, message: "Payment recorded." };
+}
