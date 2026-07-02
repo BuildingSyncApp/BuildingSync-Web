@@ -2,19 +2,19 @@
 
 import { useLocalStorageValue } from "@/components/useLocalStorageValue";
 
-const THEMES = ["paper", "light", "dark"] as const;
+const THEMES = ["light", "paper", "dark"] as const;
 type Theme = (typeof THEMES)[number];
 
 const THEME_LABEL: Record<Theme, string> = {
-  paper: "Paper",
   light: "Light",
+  paper: "Paper",
   dark: "Dark",
 };
 
 export function ThemeToggle() {
   const [saved, setSaved] = useLocalStorageValue("bs-theme");
   const theme: Theme =
-    saved && (THEMES as readonly string[]).includes(saved) ? (saved as Theme) : "paper";
+    saved && (THEMES as readonly string[]).includes(saved) ? (saved as Theme) : "light";
 
   function apply(next: Theme) {
     setSaved(next);
